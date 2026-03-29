@@ -2,6 +2,7 @@
 
 (function () {
   var installed = {};
+  var repos = [];
 
   var _initRetries = 0;
   function init() {
@@ -14,12 +15,15 @@
     if (!extConfig || !extConfig.configuration) return;
 
     installed = extConfig.configuration.installed || {};
+    repos = extConfig.configuration.repos || [];
 
     if (!isExtensionsPage()) return;
 
-    addInstallFromUrl();
     addRemoveToInstalledList();
     addButtonsToCommunityTable();
+    if (repos.length > 0) {
+      loadRepoCatalogs();
+    }
   }
 
   function isExtensionsPage() {
@@ -59,8 +63,26 @@
     });
   }
 
+  function apiGet(action, params) {
+    var qs = new URLSearchParams(params);
+    return fetch('./?c=extmgr&a=' + action + '&' + qs.toString(), {
+      credentials: 'same-origin',
+      redirect: 'manual',
+    }).then(function (r) {
+      if (r.type === 'opaqueredirect' || r.status === 0) {
+        return { error: 'Request redirected — controller not found.' };
+      }
+      var contentType = r.headers.get('content-type') || '';
+      if (contentType.indexOf('json') === -1) {
+        return r.text().then(function (text) {
+          return { error: 'Unexpected response (not JSON): ' + text.substring(0, 200) };
+        });
+      }
+      return r.json();
+    });
+  }
+
   function showNotification(msg, isError) {
-    // Use FreshRSS's built-in notification system
     var notif = document.getElementById('notification');
     if (notif) {
       notif.className = isError ? 'notification error' : 'notification good';
@@ -71,75 +93,11 @@
       setTimeout(function () { notif.classList.add('closed'); }, 4000);
       return;
     }
-    // Fallback
     var el = document.createElement('div');
     el.textContent = msg;
     el.className = 'ext-mgr-notif ' + (isError ? 'ext-mgr-notif-error' : 'ext-mgr-notif-ok');
     document.body.appendChild(el);
     setTimeout(function () { el.remove(); }, 4000);
-  }
-
-  function addInstallFromUrl() {
-    var container = document.createElement('div');
-    container.className = 'ext-mgr-url-install';
-
-    var input = document.createElement('input');
-    input.type = 'url';
-    input.placeholder = 'https://github.com/user/repo';
-    input.className = 'ext-mgr-url-input';
-
-    var btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = 'ext-mgr-btn ext-mgr-install';
-    btn.textContent = 'Install from URL';
-
-    btn.addEventListener('click', function () {
-      var url = input.value.trim();
-      if (!url) return;
-      if (!/^https:\/\/github\.com\/[a-zA-Z0-9._-]+\/[a-zA-Z0-9._-]+/.test(url)) {
-        showNotification('Only GitHub repository URLs are supported', true);
-        return;
-      }
-      btn.disabled = true;
-      btn.textContent = 'Installing...';
-      apiCall('install', { url: url }).then(function (data) {
-        if (data.success) {
-          btn.textContent = '\u2713 Done';
-          btn.className = 'ext-mgr-btn ext-mgr-done';
-          input.value = '';
-          showNotification('Extension installed');
-          setTimeout(function () { window.location.reload(); }, 1500);
-        } else {
-          btn.textContent = 'Install from URL';
-          btn.disabled = false;
-          showNotification(data.error || 'Failed', true);
-        }
-      }).catch(function (err) {
-        btn.textContent = 'Install from URL';
-        btn.disabled = false;
-        showNotification('Error: ' + err.message, true);
-      });
-    });
-
-    input.addEventListener('keydown', function (e) {
-      if (e.key === 'Enter') btn.click();
-    });
-
-    container.appendChild(input);
-    container.appendChild(btn);
-
-    // Insert before the community extensions table
-    var tables = document.querySelectorAll('table');
-    for (var i = 0; i < tables.length; i++) {
-      var firstHeader = tables[i].querySelector('th');
-      if (firstHeader && firstHeader.textContent.trim() === 'Name') {
-        tables[i].parentNode.insertBefore(container, tables[i]);
-        return;
-      }
-    }
-    // Fallback: insert at end of main content
-    var main = document.querySelector('.post') || document.querySelector('#content') || document.body;
-    main.appendChild(container);
   }
 
   function addRemoveToInstalledList() {
@@ -235,7 +193,7 @@
 
       if (info) {
         if (catalogVersion && info.version && catalogVersion !== info.version) {
-          td.appendChild(makeActionButton('Update', 'ext-mgr-update', extUrl, extName));
+          td.appendChild(makeInstallButton('Update', extUrl, extName, null, null));
         } else {
           var badge = document.createElement('span');
           badge.className = 'ext-mgr-installed-badge';
@@ -243,27 +201,143 @@
           td.appendChild(badge);
         }
       } else if (extUrl) {
-        td.appendChild(makeActionButton('Install', 'ext-mgr-install', extUrl, extName));
+        td.appendChild(makeInstallButton('Install', extUrl, extName, null, null));
       }
 
       row.appendChild(td);
     });
   }
 
-  function makeActionButton(label, className, extUrl, extName) {
+  function loadRepoCatalogs() {
+    var main = document.querySelector('.post') || document.querySelector('#content') || document.body;
+
+    repos.forEach(function (repoUrl) {
+      var section = document.createElement('div');
+      section.className = 'ext-mgr-repo-section';
+
+      var heading = document.createElement('h3');
+      heading.textContent = repoUrl.replace('https://github.com/', '');
+      section.appendChild(heading);
+
+      var loading = document.createElement('p');
+      loading.textContent = 'Loading catalog...';
+      loading.className = 'ext-mgr-loading';
+      section.appendChild(loading);
+
+      main.appendChild(section);
+
+      apiGet('catalog', { url: repoUrl }).then(function (data) {
+        loading.remove();
+        if (data.error) {
+          var err = document.createElement('p');
+          err.textContent = 'Failed: ' + data.error;
+          err.className = 'ext-mgr-error';
+          section.appendChild(err);
+          return;
+        }
+
+        var table = buildRepoTable(data.extensions, data.tmpDir);
+        section.appendChild(table);
+      }).catch(function (err) {
+        loading.remove();
+        var errEl = document.createElement('p');
+        errEl.textContent = 'Error: ' + err.message;
+        errEl.className = 'ext-mgr-error';
+        section.appendChild(errEl);
+      });
+    });
+  }
+
+  function buildRepoTable(extensions, tmpDir) {
+    var table = document.createElement('table');
+    table.className = 'ext-mgr-repo-table';
+
+    var thead = document.createElement('thead');
+    var headerRow = document.createElement('tr');
+    ['Name', 'Version', 'Description', 'Actions'].forEach(function (h) {
+      var th = document.createElement('th');
+      th.textContent = h;
+      headerRow.appendChild(th);
+    });
+    thead.appendChild(headerRow);
+    table.appendChild(thead);
+
+    var tbody = document.createElement('tbody');
+    var installedByName = {};
+    for (var dir in installed) {
+      installedByName[installed[dir].name] = {
+        dir: dir,
+        version: String(installed[dir].version),
+      };
+    }
+
+    extensions.forEach(function (ext) {
+      var tr = document.createElement('tr');
+
+      var tdName = document.createElement('td');
+      tdName.textContent = ext.name;
+      tr.appendChild(tdName);
+
+      var tdVersion = document.createElement('td');
+      tdVersion.textContent = ext.version;
+      tr.appendChild(tdVersion);
+
+      var tdDesc = document.createElement('td');
+      tdDesc.textContent = ext.description;
+      tr.appendChild(tdDesc);
+
+      var tdAction = document.createElement('td');
+      var info = installedByName[ext.name];
+
+      if (ext.dir === 'xExtension-ExtensionManager') {
+        var selfBadge = document.createElement('span');
+        selfBadge.className = 'ext-mgr-installed-badge';
+        selfBadge.textContent = '(self)';
+        tdAction.appendChild(selfBadge);
+      } else if (info) {
+        if (String(ext.version) !== info.version) {
+          tdAction.appendChild(makeInstallButton('Update', null, ext.name, ext.dir, tmpDir));
+        } else {
+          var badge = document.createElement('span');
+          badge.className = 'ext-mgr-installed-badge';
+          badge.textContent = '\u2713 Installed';
+          tdAction.appendChild(badge);
+        }
+      } else {
+        tdAction.appendChild(makeInstallButton('Install', null, ext.name, ext.dir, tmpDir));
+      }
+
+      tr.appendChild(tdAction);
+      tbody.appendChild(tr);
+    });
+
+    table.appendChild(tbody);
+    return table;
+  }
+
+  function makeInstallButton(label, extUrl, extName, extDir, tmpDir) {
     var btn = document.createElement('button');
     btn.type = 'button';
-    btn.className = 'ext-mgr-btn ' + className;
+    btn.className = 'ext-mgr-btn ' + (label === 'Update' ? 'ext-mgr-update' : 'ext-mgr-install');
     btn.textContent = label;
     btn.addEventListener('click', function () {
       btn.disabled = true;
       btn.textContent = label === 'Install' ? 'Installing...' : 'Updating...';
-      apiCall('install', { url: extUrl }).then(function (data) {
+
+      var params = {};
+      if (extDir && tmpDir) {
+        // Per-extension install from catalog
+        params = { dir: extDir, tmpDir: tmpDir };
+      } else if (extUrl) {
+        // Direct URL install (community table)
+        params = { url: extUrl };
+      }
+
+      apiCall('install', params).then(function (data) {
         if (data.success) {
           btn.textContent = '\u2713 Done';
           btn.className = 'ext-mgr-btn ext-mgr-done';
           showNotification(extName + ' ' + (label === 'Install' ? 'installed' : 'updated'));
-          // Reload page after delay to refresh extension list
           setTimeout(function () { window.location.reload(); }, 1500);
         } else {
           btn.textContent = label;

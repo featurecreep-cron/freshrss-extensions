@@ -2,7 +2,7 @@
     "name": "Recently Read",
     "author": "featurecreep-cron",
     "description": "Adds a Recently Read view to quickly find articles you've already read",
-    "version": 1.0,
+    "version": "0.1.0",
     "entrypoint": "RecentlyRead",
     "type": "user"
 }

@@ -35,20 +35,44 @@
     font-weight: 600;
 }
 
-/* Install from URL */
-.ext-mgr-url-install {
-    margin: 12px 0 16px;
-    display: flex;
-    gap: 8px;
-    align-items: center;
+/* Repo catalog sections */
+.ext-mgr-repo-section {
+    margin-top: 24px;
+    padding-top: 16px;
+    border-top: 1px solid #ddd;
 }
-.ext-mgr-url-input {
-    flex: 1;
-    max-width: 400px;
-    padding: 5px 10px;
-    border: 1px solid #ccc;
-    border-radius: 3px;
-    font-size: 0.9em;
+
+.ext-mgr-repo-section h3 {
+    font-size: 1em;
+    margin: 0 0 8px;
+}
+
+.ext-mgr-loading {
+    color: #888;
+    font-style: italic;
+}
+
+.ext-mgr-error {
+    color: #c62828;
+}
+
+.ext-mgr-repo-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 8px;
+}
+
+.ext-mgr-repo-table th,
+.ext-mgr-repo-table td {
+    padding: 6px 10px;
+    text-align: left;
+    border-bottom: 1px solid #eee;
+}
+
+.ext-mgr-repo-table th {
+    font-weight: 600;
+    font-size: 0.85em;
+    color: #666;
 }
 
 /* Fallback notification */

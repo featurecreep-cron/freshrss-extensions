@@ -3,7 +3,6 @@
 class ExtensionManagerExtension extends Minz_Extension {
 
     public function init() {
-        // Register custom controller for install/remove endpoints
         $this->registerController('extmgr');
         $this->registerViews();
 
@@ -15,13 +14,19 @@ class ExtensionManagerExtension extends Minz_Extension {
     public function addVariables($vars) {
         $vars[$this->getName()]['configuration'] = [
             'installed' => self::getInstalledExtensions(),
+            'repos' => $this->getUserConfigurationValue('repos') ?: [],
         ];
         return $vars;
     }
 
     public function handleConfigureAction() {
         $this->registerTranslates();
-        // No POST handling needed — custom controller handles actions
+
+        if (Minz_Request::isPost()) {
+            $repos = Minz_Request::param('repos', '');
+            $repoList = array_values(array_filter(array_map('trim', explode("\n", $repos))));
+            $this->setUserConfiguration(['repos' => $repoList]);
+        }
     }
 
     public static function getInstalledExtensions() {
@@ -43,21 +48,24 @@ class ExtensionManagerExtension extends Minz_Extension {
         return $installed;
     }
 
-    public static function downloadAndInstall($url) {
+    /**
+     * Fetch the extension catalog from a GitHub repo.
+     * Returns array of extensions found in the repo with metadata.
+     */
+    public static function fetchRepoCatalog($url) {
         if (!preg_match('#^https://github\.com/[a-zA-Z0-9._-]+/[a-zA-Z0-9._-]+#', $url)) {
-            return 'Invalid URL: only GitHub repositories supported';
+            return ['error' => 'Invalid URL: only GitHub repositories supported'];
         }
 
         $url = rtrim($url, '/');
         $url = preg_replace('#\.git$#', '', $url);
 
-        // Download zip
         $zipData = self::downloadZip($url . '/archive/refs/heads/main.zip');
         if ($zipData === false) {
             $zipData = self::downloadZip($url . '/archive/refs/heads/master.zip');
         }
         if ($zipData === false) {
-            return 'Failed to download from ' . $url;
+            return ['error' => 'Failed to download from ' . $url];
         }
 
         $tmpFile = tempnam(sys_get_temp_dir(), 'frss_ext_');
@@ -66,7 +74,7 @@ class ExtensionManagerExtension extends Minz_Extension {
         $zip = new ZipArchive();
         if ($zip->open($tmpFile) !== true) {
             unlink($tmpFile);
-            return 'Failed to open zip';
+            return ['error' => 'Failed to open zip'];
         }
 
         $tmpDir = sys_get_temp_dir() . '/frss_ext_' . uniqid();
@@ -75,10 +83,10 @@ class ExtensionManagerExtension extends Minz_Extension {
         $zip->close();
         unlink($tmpFile);
 
-        // Find extensions
         $extensionDirs = [];
         self::findExtensionDirs($tmpDir, $extensionDirs, 0);
 
+        // Fallback: single-extension repo with metadata.json at root
         if (empty($extensionDirs)) {
             $topDirs = glob($tmpDir . '/*', GLOB_ONLYDIR);
             if (!empty($topDirs)) {
@@ -92,67 +100,126 @@ class ExtensionManagerExtension extends Minz_Extension {
             }
         }
 
-        if (empty($extensionDirs)) {
+        $catalog = [];
+        foreach ($extensionDirs as $ext) {
+            $metaFile = $ext['source'] . '/metadata.json';
+            if (file_exists($metaFile)) {
+                $meta = json_decode(file_get_contents($metaFile), true);
+                $catalog[] = [
+                    'dir' => $ext['name'],
+                    'name' => $meta['name'] ?? $ext['name'],
+                    'version' => $meta['version'] ?? '0',
+                    'description' => $meta['description'] ?? '',
+                    'author' => $meta['author'] ?? '',
+                    'url' => $url,
+                ];
+            }
+        }
+
+        // Store the extracted tmpDir path for subsequent install calls
+        // Clean up is handled after install or on timeout
+        if (empty($catalog)) {
             self::recursiveDelete($tmpDir);
-            return 'No extension found in archive';
+            return ['error' => 'No extensions found in repository'];
+        }
+
+        return ['extensions' => $catalog, 'tmpDir' => $tmpDir];
+    }
+
+    /**
+     * Install a single extension by directory name from an already-extracted repo.
+     */
+    public static function installFromExtracted($tmpDir, $extDirName) {
+        if (!is_dir($tmpDir)) {
+            return 'Extracted repo not found. Try refreshing the catalog.';
+        }
+
+        // Prevent self-install
+        if ($extDirName === 'xExtension-ExtensionManager') {
+            return 'Extension Manager cannot update itself this way. Replace the files manually.';
+        }
+
+        // Find the extension source in the extracted dir
+        $extensionDirs = [];
+        self::findExtensionDirs($tmpDir, $extensionDirs, 0);
+
+        $sourceDir = null;
+        foreach ($extensionDirs as $ext) {
+            if ($ext['name'] === $extDirName) {
+                $sourceDir = $ext['source'];
+                break;
+            }
+        }
+
+        if (!$sourceDir || !is_dir($sourceDir)) {
+            return 'Extension ' . $extDirName . ' not found in extracted archive';
+        }
+
+        // Verify required files
+        if (!file_exists($sourceDir . '/metadata.json') || !file_exists($sourceDir . '/extension.php')) {
+            return 'Extension is missing required files (metadata.json or extension.php)';
         }
 
         $extPath = dirname(dirname(__FILE__));
-        $names = [];
+        $targetDir = $extPath . '/' . $extDirName;
 
-        foreach ($extensionDirs as $ext) {
-            $targetDir = $extPath . '/' . $ext['name'];
+        // Save enabled state
+        $wasEnabled = self::isExtensionEnabled($extDirName);
 
-            // Save enabled state before modifying
-            $wasEnabled = self::isExtensionEnabled($ext['name']);
+        // Atomic update: staging in temp dir (NOT in extensions/)
+        $stagingDir = sys_get_temp_dir() . '/frss_staging_' . uniqid();
+        $backupDir = sys_get_temp_dir() . '/frss_backup_' . uniqid();
 
-            // Atomic update: copy to staging dir, verify, then swap
-            $stagingDir = $extPath . '/' . $ext['name'] . '.new';
-            $backupDir = $extPath . '/' . $ext['name'] . '.bak';
+        self::recursiveCopy($sourceDir, $stagingDir);
 
-            // Clean up any leftover staging/backup from previous failed attempt
-            if (is_dir($stagingDir)) self::recursiveDelete($stagingDir);
-            if (is_dir($backupDir)) self::recursiveDelete($backupDir);
-
-            // Copy new version to staging
-            self::recursiveCopy($ext['source'], $stagingDir);
-
-            // Verify staging has required files
-            if (!file_exists($stagingDir . '/metadata.json') || !file_exists($stagingDir . '/extension.php')) {
+        // Swap
+        if (is_dir($targetDir)) {
+            if (!@rename($targetDir, $backupDir)) {
                 self::recursiveDelete($stagingDir);
-                self::recursiveDelete($tmpDir);
-                return 'Downloaded extension is missing required files (metadata.json or extension.php)';
+                return 'Failed to move old extension to backup. Check permissions.';
             }
-
-            // Swap: old → backup, staging → target
-            if (is_dir($targetDir)) {
-                if (!@rename($targetDir, $backupDir)) {
-                    self::recursiveDelete($stagingDir);
-                    self::recursiveDelete($tmpDir);
-                    return 'Failed to move old extension to backup. Check permissions.';
-                }
-            }
-
-            if (!@rename($stagingDir, $targetDir)) {
-                // Rollback: restore backup
-                if (is_dir($backupDir)) @rename($backupDir, $targetDir);
-                self::recursiveDelete($tmpDir);
-                return 'Failed to install new extension. Old version restored.';
-            }
-
-            // Success — clean up backup
-            if (is_dir($backupDir)) self::recursiveDelete($backupDir);
-
-            // Restore enabled state
-            if ($wasEnabled) {
-                self::setExtensionEnabled($ext['name'], true);
-            }
-
-            $names[] = $ext['name'];
         }
 
-        self::recursiveDelete($tmpDir);
+        if (!@rename($stagingDir, $targetDir)) {
+            // Rollback
+            if (is_dir($backupDir)) @rename($backupDir, $targetDir);
+            return 'Failed to install new extension. Old version restored.';
+        }
+
+        // Clean up backup from temp dir
+        if (is_dir($backupDir)) self::recursiveDelete($backupDir);
+
+        // Restore enabled state
+        if ($wasEnabled) {
+            self::setExtensionEnabled($extDirName, true);
+        }
+
         return true;
+    }
+
+    /**
+     * Legacy: install directly from a GitHub URL (single-extension repos).
+     */
+    public static function downloadAndInstall($url) {
+        $result = self::fetchRepoCatalog($url);
+        if (isset($result['error'])) {
+            return $result['error'];
+        }
+
+        $extensions = $result['extensions'];
+        $tmpDir = $result['tmpDir'];
+
+        // For single-extension repos, install directly
+        if (count($extensions) === 1) {
+            $ext = $extensions[0];
+            $installResult = self::installFromExtracted($tmpDir, $ext['dir']);
+            self::recursiveDelete($tmpDir);
+            return $installResult;
+        }
+
+        // Multi-extension repos should use the catalog flow
+        self::recursiveDelete($tmpDir);
+        return 'Repository contains multiple extensions. Add it as a repository source in Extension Manager settings, then install individual extensions from the extensions page.';
     }
 
     private static function downloadZip($zipUrl) {
@@ -198,14 +265,11 @@ class ExtensionManagerExtension extends Minz_Extension {
     }
 
     private static function isExtensionEnabled($dirName) {
-        // Check both user and system config for enabled state
         try {
             $conf = FreshRSS_Context::userConf();
             if ($conf) {
                 $enabled = $conf->extensions_enabled;
                 if (is_array($enabled)) {
-                    // Extensions are keyed by name (from metadata.json), not directory name
-                    // Read the extension name from metadata before we delete
                     $extPath = dirname(dirname(__FILE__));
                     $metaFile = $extPath . '/' . $dirName . '/metadata.json';
                     if (file_exists($metaFile)) {
@@ -225,7 +289,6 @@ class ExtensionManagerExtension extends Minz_Extension {
 
     private static function setExtensionEnabled($dirName, $state) {
         try {
-            // Read the freshly installed extension's name
             $extPath = dirname(dirname(__FILE__));
             $metaFile = $extPath . '/' . $dirName . '/metadata.json';
             if (!file_exists($metaFile)) return;
