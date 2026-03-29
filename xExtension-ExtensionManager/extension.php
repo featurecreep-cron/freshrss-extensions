@@ -167,26 +167,38 @@ class ExtensionManagerExtension extends Minz_Extension {
         $wasEnabled = self::isExtensionEnabled($extDirName);
 
         // Atomic update: staging in temp dir (NOT in extensions/)
+        // Use copy+delete instead of rename() — rename fails across filesystem
+        // boundaries, which is common in Docker (tmpfs vs bind mount).
         $stagingDir = sys_get_temp_dir() . '/frss_staging_' . uniqid();
         $backupDir = sys_get_temp_dir() . '/frss_backup_' . uniqid();
 
         self::recursiveCopy($sourceDir, $stagingDir);
 
-        // Swap
+        // Swap: backup old → install new → clean up
         if (is_dir($targetDir)) {
-            if (!@rename($targetDir, $backupDir)) {
+            self::recursiveCopy($targetDir, $backupDir);
+            self::recursiveDelete($targetDir);
+            if (is_dir($targetDir)) {
                 self::recursiveDelete($stagingDir);
-                return 'Failed to move old extension to backup. Check permissions.';
+                self::recursiveDelete($backupDir);
+                return 'Failed to remove old extension. Check permissions.';
             }
         }
 
-        if (!@rename($stagingDir, $targetDir)) {
+        self::recursiveCopy($stagingDir, $targetDir);
+        if (!is_dir($targetDir) || !file_exists($targetDir . '/metadata.json')) {
             // Rollback
-            if (is_dir($backupDir)) @rename($backupDir, $targetDir);
+            self::recursiveDelete($targetDir);
+            if (is_dir($backupDir)) {
+                self::recursiveCopy($backupDir, $targetDir);
+                self::recursiveDelete($backupDir);
+            }
+            self::recursiveDelete($stagingDir);
             return 'Failed to install new extension. Old version restored.';
         }
 
-        // Clean up backup from temp dir
+        // Clean up temp dirs
+        self::recursiveDelete($stagingDir);
         if (is_dir($backupDir)) self::recursiveDelete($backupDir);
 
         // Restore enabled state
