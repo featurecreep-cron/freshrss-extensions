@@ -46,8 +46,8 @@ class RightClickActionsExtension extends Minz_Extension {
     ];
 
     public function init() {
-        Minz_View::appendStyle($this->getFileUrl('style.css', 'css'));
-        Minz_View::appendScript($this->getFileUrl('script.js', 'js'), '', '', '');
+        Minz_View::appendStyle($this->getFileUrl('style.css'));
+        Minz_View::appendScript($this->getFileUrl('script.js'));
         $this->registerHook('js_vars', [$this, 'addVariables']);
     }
 

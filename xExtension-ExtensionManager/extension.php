@@ -6,8 +6,8 @@ class ExtensionManagerExtension extends Minz_Extension {
         $this->registerController('extmgr');
         $this->registerViews();
 
-        Minz_View::appendScript($this->getFileUrl('script.js', 'js'), '', '', '');
-        Minz_View::appendStyle($this->getFileUrl('style.css', 'css'));
+        Minz_View::appendScript($this->getFileUrl('script.js'));
+        Minz_View::appendStyle($this->getFileUrl('style.css'));
         $this->registerHook('js_vars', [$this, 'addVariables']);
     }
 

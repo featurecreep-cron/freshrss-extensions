@@ -5,7 +5,7 @@ class SilentRefreshExtension extends Minz_Extension {
     const DEFAULT_TITLE_MODE = 'all';
 
     public function init() {
-        Minz_View::appendScript($this->getFileUrl('script.js', 'js'), '', '', '');
+        Minz_View::appendScript($this->getFileUrl('script.js'));
         $this->registerHook('js_vars', [$this, 'addVariables']);
     }
 
