@@ -5,6 +5,8 @@
 
 Custom extensions for [FreshRSS](https://freshrss.org) that fix everyday annoyances — scroll jumps, missing context menus, manual page refreshes, and no way to install extensions without SSH.
 
+**Requirements:** FreshRSS 1.20+ (uses `js_vars` hook and `registerController`). No external dependencies.
+
 ## Extensions
 
 ### Sticky Reader
