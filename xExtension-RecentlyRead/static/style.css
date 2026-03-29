@@ -7,14 +7,16 @@
     display: block;
     padding: 2px 10px;
     font-size: 0.82rem;
-    color: #555;
+    color: inherit;
+    opacity: 0.7;
     text-decoration: none;
 }
 
 .tree-folder.recently-read > a:hover {
-    color: #222;
+    opacity: 1;
 }
 
 .tree-folder.recently-read > a.active {
-    background-color: #c8d0da;
+    opacity: 1;
+    font-weight: 600;
 }

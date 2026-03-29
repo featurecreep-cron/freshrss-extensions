@@ -84,4 +84,4 @@
 /* Configure page styles */
 .rca-actions { padding-left: 1.5em; }
 .rca-actions.rca-disabled { opacity: 0.4; }
-.rca-group-label { margin-top: 0.5em; margin-bottom: 0.2em; font-size: 0.85em; color: #888; font-weight: 600; }
+.rca-group-label { margin-top: 0.5em; margin-bottom: 0.2em; font-size: 0.85em; color: inherit; opacity: 0.6; font-weight: 600; }

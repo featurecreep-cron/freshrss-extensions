@@ -2,7 +2,7 @@
 .ext-mgr-btn {
     padding: 3px 12px;
     border-radius: 3px;
-    border: 1px solid #ccc;
+    border: 1px solid currentColor;
     cursor: pointer;
     font-size: 0.8em;
     line-height: 1.6;
@@ -14,7 +14,7 @@
 
 .ext-mgr-install { background: #4CAF50; color: #fff !important; border-color: #43A047; }
 .ext-mgr-update { background: #FF9800; color: #fff !important; border-color: #F57C00; }
-.ext-mgr-done { background: #e0e0e0; color: #333 !important; border-color: #ccc; cursor: default; }
+.ext-mgr-done { background: transparent; color: inherit !important; border-color: currentColor; cursor: default; opacity: 0.6; }
 
 /* Trash icon next to gear */
 .ext-mgr-trash {
@@ -47,16 +47,25 @@
     flex: 1;
     max-width: 400px;
     padding: 5px 10px;
-    border: 1px solid #ccc;
+    border: 1px solid currentColor;
     border-radius: 3px;
     font-size: 0.9em;
+    background: inherit;
+    color: inherit;
+    opacity: 0.6;
+}
+
+.ext-mgr-url-input:focus {
+    opacity: 1;
 }
 
 /* Repo catalog sections */
 .ext-mgr-repo-section {
     margin-top: 24px;
     padding-top: 16px;
-    border-top: 1px solid #ddd;
+    border-top: 1px solid currentColor;
+    border-top-color: inherit;
+    opacity: 1;
 }
 
 .ext-mgr-repo-section h3 {
@@ -65,7 +74,7 @@
 }
 
 .ext-mgr-loading {
-    color: #888;
+    opacity: 0.5;
     font-style: italic;
 }
 
@@ -83,13 +92,15 @@
 .ext-mgr-repo-table td {
     padding: 6px 10px;
     text-align: left;
-    border-bottom: 1px solid #eee;
+    border-bottom: 1px solid currentColor;
+    border-bottom-color: inherit;
+    opacity: 1;
 }
 
 .ext-mgr-repo-table th {
     font-weight: 600;
     font-size: 0.85em;
-    color: #666;
+    opacity: 0.6;
 }
 
 /* Fallback notification */

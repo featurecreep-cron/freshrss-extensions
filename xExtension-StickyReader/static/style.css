@@ -94,7 +94,7 @@
 .rv-feed-name {
     font-size: 0.9em;
     font-weight: 600;
-    color: #333;
+    color: inherit;
     padding: 0 0.75em;
     white-space: nowrap;
     overflow: hidden;

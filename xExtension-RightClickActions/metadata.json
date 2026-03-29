@@ -2,7 +2,7 @@
     "name": "Right-Click Actions",
     "author": "featurecreep-cron",
     "description": "Adds context menus to articles, feeds, and categories",
-    "version": "0.1.0",
+    "version": "0.1.1",
     "entrypoint": "RightClickActions",
     "type": "user"
 }
