@@ -114,6 +114,21 @@
     flex-shrink: 0 !important;
 }
 
+/* Locked sidebar (independent of scroll mode) */
+.rv-lock-sidebar .aside {
+    position: sticky !important;
+    top: 0 !important;
+    height: 100vh !important;
+    overflow-y: auto !important;
+    align-self: flex-start !important;
+}
+
+/* In search_bar mode, sidebar is already locked via flex layout */
+.rv-scroll-active.rv-sticky-header .aside {
+    position: static !important;
+    height: auto !important;
+}
+
 /* Hide subscription management bar */
 .rv-hide-sub-mgmt .stick.configure-feeds {
     display: none !important;

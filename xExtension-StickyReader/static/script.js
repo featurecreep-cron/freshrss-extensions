@@ -242,6 +242,7 @@
       setupStickyBars();
       initScrollAnchor();
     }
+    if (config.lock_sidebar) document.documentElement.classList.add('rv-lock-sidebar');
     if (config.title_feed_name) initTitleBar();
     if (config.hide_feed_column) initFeedColumnHide();
     if (config.hide_sub_management) document.documentElement.classList.add('rv-hide-sub-mgmt');

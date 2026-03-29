@@ -35,6 +35,23 @@
     font-weight: 600;
 }
 
+/* Add repository input */
+.ext-mgr-add-repo {
+    margin: 12px 0 16px;
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.ext-mgr-url-input {
+    flex: 1;
+    max-width: 400px;
+    padding: 5px 10px;
+    border: 1px solid #ccc;
+    border-radius: 3px;
+    font-size: 0.9em;
+}
+
 /* Repo catalog sections */
 .ext-mgr-repo-section {
     margin-top: 24px;

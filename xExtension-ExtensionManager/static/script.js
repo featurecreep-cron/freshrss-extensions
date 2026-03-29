@@ -21,6 +21,7 @@
 
     addRemoveToInstalledList();
     addButtonsToCommunityTable();
+    addRepoInput();
     if (repos.length > 0) {
       loadRepoCatalogs();
     }
@@ -98,6 +99,119 @@
     el.className = 'ext-mgr-notif ' + (isError ? 'ext-mgr-notif-error' : 'ext-mgr-notif-ok');
     document.body.appendChild(el);
     setTimeout(function () { el.remove(); }, 4000);
+  }
+
+  function addRepoInput() {
+    var container = document.createElement('div');
+    container.className = 'ext-mgr-add-repo';
+
+    var input = document.createElement('input');
+    input.type = 'url';
+    input.placeholder = 'https://github.com/user/repo';
+    input.className = 'ext-mgr-url-input';
+
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'ext-mgr-btn ext-mgr-install';
+    btn.textContent = 'Add repository';
+
+    btn.addEventListener('click', function () {
+      var url = input.value.trim();
+      if (!url) return;
+      if (!/^https:\/\/github\.com\/[a-zA-Z0-9._-]+\/[a-zA-Z0-9._-]+/.test(url)) {
+        showNotification('Only GitHub repository URLs are supported', true);
+        return;
+      }
+
+      // Don't add duplicates
+      if (repos.indexOf(url) !== -1) {
+        showNotification('Repository already added', true);
+        return;
+      }
+
+      btn.disabled = true;
+      btn.textContent = 'Loading...';
+
+      // Save the repo to config via POST to configure
+      repos.push(url);
+      var saveBody = new URLSearchParams();
+      saveBody.append('_csrf', getCsrf());
+      saveBody.append('repos', repos.join('\n'));
+      fetch('./?c=extension&a=configure&e=Extension+Manager', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: saveBody.toString(),
+        credentials: 'same-origin',
+      }).then(function () {
+        // Now load the catalog
+        input.value = '';
+        btn.textContent = 'Add repository';
+        btn.disabled = false;
+        loadSingleRepoCatalog(url);
+        showNotification('Repository added');
+      }).catch(function (err) {
+        repos.pop();
+        btn.textContent = 'Add repository';
+        btn.disabled = false;
+        showNotification('Failed to save: ' + err.message, true);
+      });
+    });
+
+    input.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') btn.click();
+    });
+
+    container.appendChild(input);
+    container.appendChild(btn);
+
+    // Insert before the community extensions table or at end of content
+    var main = document.querySelector('.post') || document.querySelector('#content') || document.body;
+    var tables = document.querySelectorAll('table');
+    for (var i = 0; i < tables.length; i++) {
+      var firstHeader = tables[i].querySelector('th');
+      if (firstHeader && firstHeader.textContent.trim() === 'Name') {
+        tables[i].parentNode.insertBefore(container, tables[i]);
+        return;
+      }
+    }
+    main.appendChild(container);
+  }
+
+  function loadSingleRepoCatalog(repoUrl) {
+    var main = document.querySelector('.post') || document.querySelector('#content') || document.body;
+
+    var section = document.createElement('div');
+    section.className = 'ext-mgr-repo-section';
+
+    var heading = document.createElement('h3');
+    heading.textContent = repoUrl.replace('https://github.com/', '');
+    section.appendChild(heading);
+
+    var loading = document.createElement('p');
+    loading.textContent = 'Loading catalog...';
+    loading.className = 'ext-mgr-loading';
+    section.appendChild(loading);
+
+    main.appendChild(section);
+
+    apiGet('catalog', { url: repoUrl }).then(function (data) {
+      loading.remove();
+      if (data.error) {
+        var err = document.createElement('p');
+        err.textContent = 'Failed: ' + data.error;
+        err.className = 'ext-mgr-error';
+        section.appendChild(err);
+        return;
+      }
+      var table = buildRepoTable(data.extensions, data.tmpDir);
+      section.appendChild(table);
+    }).catch(function (err) {
+      loading.remove();
+      var errEl = document.createElement('p');
+      errEl.textContent = 'Error: ' + err.message;
+      errEl.className = 'ext-mgr-error';
+      section.appendChild(errEl);
+    });
   }
 
   function addRemoveToInstalledList() {
@@ -209,42 +323,8 @@
   }
 
   function loadRepoCatalogs() {
-    var main = document.querySelector('.post') || document.querySelector('#content') || document.body;
-
     repos.forEach(function (repoUrl) {
-      var section = document.createElement('div');
-      section.className = 'ext-mgr-repo-section';
-
-      var heading = document.createElement('h3');
-      heading.textContent = repoUrl.replace('https://github.com/', '');
-      section.appendChild(heading);
-
-      var loading = document.createElement('p');
-      loading.textContent = 'Loading catalog...';
-      loading.className = 'ext-mgr-loading';
-      section.appendChild(loading);
-
-      main.appendChild(section);
-
-      apiGet('catalog', { url: repoUrl }).then(function (data) {
-        loading.remove();
-        if (data.error) {
-          var err = document.createElement('p');
-          err.textContent = 'Failed: ' + data.error;
-          err.className = 'ext-mgr-error';
-          section.appendChild(err);
-          return;
-        }
-
-        var table = buildRepoTable(data.extensions, data.tmpDir);
-        section.appendChild(table);
-      }).catch(function (err) {
-        loading.remove();
-        var errEl = document.createElement('p');
-        errEl.textContent = 'Error: ' + err.message;
-        errEl.className = 'ext-mgr-error';
-        section.appendChild(errEl);
-      });
+      loadSingleRepoCatalog(repoUrl);
     });
   }
 
