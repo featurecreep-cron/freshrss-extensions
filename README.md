@@ -1,6 +1,9 @@
 # FreshRSS Extensions
 
-Custom extensions for [FreshRSS](https://freshrss.org).
+[![License: MIT](https://img.shields.io/github/license/featurecreep-cron/freshrss-extensions)](https://github.com/featurecreep-cron/freshrss-extensions/blob/main/LICENSE)
+[![Release](https://img.shields.io/github/v/release/featurecreep-cron/freshrss-extensions)](https://github.com/featurecreep-cron/freshrss-extensions/releases)
+
+Custom extensions for [FreshRSS](https://freshrss.org) that fix everyday annoyances — scroll jumps, missing context menus, manual page refreshes, and no way to install extensions without SSH.
 
 ## Extensions
 
@@ -51,6 +54,18 @@ The extensions directory is typically at:
 - Docker: `/var/www/FreshRSS/extensions/` (inside the container)
 - Manual install: `<freshrss-root>/extensions/`
 
+## Configuration
+
+Each extension has its own settings page in FreshRSS (Extensions → Configure). No global configuration file needed.
+
+## Contributing
+
+Contributions are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup and code style.
+
+## Support
+
+If these extensions are useful to you, [buy me a coffee](https://buymeacoffee.com/featurecreep).
+
 ## License
 
-MIT
+[MIT](LICENSE)

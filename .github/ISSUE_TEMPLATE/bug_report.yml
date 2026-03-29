@@ -1,0 +1,43 @@
+name: Bug Report
+description: Report a bug with a FreshRSS extension
+labels: [bug]
+body:
+  - type: dropdown
+    id: extension
+    attributes:
+      label: Extension
+      options:
+        - Sticky Reader
+        - Right-Click Actions
+        - Silent Refresh
+        - Recently Read
+        - Extension Manager
+    validations:
+      required: true
+  - type: input
+    id: freshrss-version
+    attributes:
+      label: FreshRSS version
+      placeholder: "e.g. 1.28.1"
+    validations:
+      required: true
+  - type: input
+    id: browser
+    attributes:
+      label: Browser
+      placeholder: "e.g. Firefox 128, Chrome 124"
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      placeholder: Describe the bug
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect?
+    validations:
+      required: true
