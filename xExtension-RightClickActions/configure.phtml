@@ -1,0 +1,90 @@
+<?php
+$config = $this->getFullConfig();
+$zoneLabels = [
+    'header' => 'Article headlines',
+    'body' => 'Article content',
+    'sidebar_feed' => 'Sidebar feeds',
+    'sidebar_category' => 'Sidebar categories',
+];
+
+$actionGroups = [
+    'header' => [
+        '' => ['toggle_read', 'star_toggle', 'open_new_tab'],
+        'Bulk actions' => ['mark_older', 'mark_newer'],
+        'Filtering' => ['filter_title', 'filter_feed'],
+    ],
+    'body' => [
+        '' => ['toggle_read', 'star_toggle', 'open_new_tab'],
+        'Bulk actions' => ['mark_older', 'mark_newer'],
+        'Filtering' => ['filter_title', 'filter_feed'],
+    ],
+    'sidebar_feed' => [
+        '' => ['mark_all_read', 'mark_all_unread', 'recently_read', 'open_settings'],
+    ],
+    'sidebar_category' => [
+        '' => ['mark_all_read', 'mark_all_unread', 'recently_read', 'expand_all', 'collapse_all', 'add_subscription', 'manage_subscriptions'],
+    ],
+];
+
+$actionLabels = [
+    'toggle_read' => 'Toggle read/unread',
+    'star_toggle' => 'Toggle favourite',
+    'open_new_tab' => 'Open in new tab',
+    'mark_older' => 'Mark older as read/unread',
+    'mark_newer' => 'Mark newer as read/unread',
+    'filter_title' => 'Filter by title keyword',
+    'filter_feed' => 'Show this feed only',
+    'mark_all_read' => 'Mark all as read',
+    'mark_all_unread' => 'Mark all as unread',
+    'open_settings' => 'Open feed settings',
+    'recently_read' => 'Recently read',
+    'expand_all' => 'Expand all categories',
+    'collapse_all' => 'Collapse all categories',
+    'add_subscription' => 'Add subscription',
+    'manage_subscriptions' => 'Manage subscriptions',
+];
+?>
+
+<form action="<?php echo _url('extension', 'configure', 'e', urlencode($this->getName())); ?>" method="post">
+    <input type="hidden" name="_csrf" value="<?php echo FreshRSS_Auth::csrfToken(); ?>" />
+
+    <?php foreach ($config['zones'] as $zone => $enabled): ?>
+    <fieldset>
+        <legend>
+            <label>
+                <input type="hidden" name="zone_<?= $zone ?>" value="0" />
+                <input type="checkbox" name="zone_<?= $zone ?>" value="1"
+                       <?= $enabled ? 'checked' : '' ?>
+                       class="rca-zone-toggle" data-zone="<?= $zone ?>">
+                <?= $zoneLabels[$zone] ?? $zone ?>
+            </label>
+        </legend>
+        <div id="actions-<?= $zone ?>" class="rca-actions <?= $enabled ? '' : 'rca-disabled' ?>">
+            <?php if (isset($actionGroups[$zone])): ?>
+                <?php foreach ($actionGroups[$zone] as $groupName => $actions): ?>
+                    <?php if ($groupName): ?><div class="rca-group-label"><?= $groupName ?></div><?php endif; ?>
+                    <?php foreach ($actions as $action): ?>
+                        <?php if (isset($config['actions'][$zone][$action])): ?>
+                        <div>
+                            <input type="hidden" name="action_<?= $zone ?>_<?= $action ?>" value="0" />
+                            <label>
+                                <input type="checkbox" name="action_<?= $zone ?>_<?= $action ?>" value="1"
+                                       <?= $config['actions'][$zone][$action] ? 'checked' : '' ?>>
+                                <?= $actionLabels[$action] ?? $action ?>
+                            </label>
+                        </div>
+                        <?php endif; ?>
+                    <?php endforeach; ?>
+                <?php endforeach; ?>
+            <?php endif; ?>
+        </div>
+    </fieldset>
+    <?php endforeach; ?>
+
+    <div class="form-group form-actions">
+        <div class="group-controls">
+            <button type="submit" class="btn btn-important">Save</button>
+            <button type="reset" class="btn">Cancel</button>
+        </div>
+    </div>
+</form>

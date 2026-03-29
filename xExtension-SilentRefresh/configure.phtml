@@ -1,0 +1,29 @@
+<form action="<?php echo _url('extension', 'configure', 'e', urlencode($this->getName())); ?>" method="post">
+    <input type="hidden" name="_csrf" value="<?php echo FreshRSS_Auth::csrfToken(); ?>" />
+
+    <div class="form-group">
+        <label for="refresh_interval" class="group-name">Check for new articles every</label>
+        <div class="group-controls">
+            <input type="number" name="refresh_interval" id="refresh_interval" min="1" max="60"
+                   value="<?= (int) $this->getUserConfigurationValue('refresh_interval', 2) ?>"> minutes
+        </div>
+    </div>
+
+    <div class="form-group">
+        <label for="title_mode" class="group-name">Title bar count shows</label>
+        <div class="group-controls">
+            <select name="title_mode" id="title_mode">
+                <?php $mode = $this->getUserConfigurationValue('title_mode', 'all'); ?>
+                <option value="all" <?= $mode === 'all' ? 'selected' : '' ?>>All unread articles</option>
+                <option value="current" <?= $mode === 'current' ? 'selected' : '' ?>>Unread in current view</option>
+            </select>
+        </div>
+    </div>
+
+    <div class="form-group form-actions">
+        <div class="group-controls">
+            <button type="submit" class="btn btn-important">Save</button>
+            <button type="reset" class="btn">Cancel</button>
+        </div>
+    </div>
+</form>

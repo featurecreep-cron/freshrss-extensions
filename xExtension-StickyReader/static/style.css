@@ -1,0 +1,120 @@
+/* Hide feed column when viewing a single feed */
+.view-single-feed .flux .item.website { display: none !important; }
+
+/* ===== control_bar mode (default): nav sticks at page top ===== */
+.rv-scroll-active .nav_menu {
+    position: sticky !important;
+    top: 0 !important;
+    z-index: 999 !important;
+    background: var(--frss-background, #fff) !important;
+}
+
+/* title_row mode: nothing sticky */
+.rv-scroll-active.rv-no-sticky .nav_menu {
+    position: static !important;
+}
+
+/* ===== search_bar mode: restructured layout ===== */
+/* Header stays at top, #global becomes flex row, content scrolls independently */
+.rv-scroll-active.rv-sticky-header {
+    height: 100% !important;
+    overflow: hidden !important;
+}
+
+.rv-scroll-active.rv-sticky-header body {
+    height: 100% !important;
+    overflow: hidden !important;
+    display: flex !important;
+    flex-direction: column !important;
+    margin: 0 !important;
+}
+
+.rv-scroll-active.rv-sticky-header .header {
+    flex: 0 0 auto !important;
+    width: 100% !important;
+}
+
+.rv-scroll-active.rv-sticky-header #global {
+    flex: 1 1 auto !important;
+    display: flex !important;
+    flex-direction: row !important;
+    overflow: hidden !important;
+    min-height: 0 !important;
+}
+
+.rv-scroll-active.rv-sticky-header .aside {
+    display: block !important;
+    width: 301px !important;
+    flex-shrink: 0 !important;
+    overflow-y: auto !important;
+    will-change: scroll-position !important;
+    -webkit-overflow-scrolling: touch !important;
+    contain: strict !important;
+}
+
+/* Remove inner tree scroll — aside itself is the scroll container now */
+.rv-scroll-active.rv-sticky-header .aside .tree {
+    max-height: none !important;
+    overflow-y: visible !important;
+}
+
+.rv-scroll-active.rv-sticky-header #rv-content {
+    flex: 1 1 auto !important;
+    overflow-y: auto !important;
+    min-width: 0 !important;
+    will-change: scroll-position !important;
+    -webkit-overflow-scrolling: touch !important;
+}
+
+.rv-scroll-active.rv-sticky-header #rv-content .nav_menu {
+    position: sticky !important;
+    top: 0 !important;
+    z-index: 999 !important;
+    background: var(--frss-background, #fff) !important;
+}
+
+/* GPU-accelerate sticky nav to avoid repaint on scroll */
+.rv-scroll-active .nav_menu {
+    transform: translateZ(0) !important;
+}
+
+/* Limit layout recalc scope for individual articles */
+.rv-scroll-active .flux {
+    contain: layout style !important;
+}
+
+/* ===== Nav flex layout (all modes) ===== */
+.rv-scroll-active .nav_menu {
+    display: flex !important;
+    align-items: center !important;
+    flex-wrap: nowrap !important;
+}
+
+/* Feed/category name in toolbar */
+.rv-feed-name {
+    font-size: 0.9em;
+    font-weight: 600;
+    color: #333;
+    padding: 0 0.75em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
+    flex-shrink: 1;
+}
+
+/* Spacer pushes controls right */
+.rv-spacer {
+    flex: 1 1 0 !important;
+    min-width: 0 !important;
+}
+
+/* Prevent control groups from shrinking */
+.rv-scroll-active .nav_menu .group {
+    flex-shrink: 0 !important;
+}
+
+/* Hide subscription management bar */
+.rv-hide-sub-mgmt .stick.configure-feeds {
+    display: none !important;
+}

@@ -1,0 +1,20 @@
+/* Recently Read sidebar link */
+.tree-folder.recently-read {
+    padding: 0 0 0.3em 0;
+}
+
+.tree-folder.recently-read > a {
+    display: block;
+    padding: 2px 10px;
+    font-size: 0.82rem;
+    color: #555;
+    text-decoration: none;
+}
+
+.tree-folder.recently-read > a:hover {
+    color: #222;
+}
+
+.tree-folder.recently-read > a.active {
+    background-color: #c8d0da;
+}

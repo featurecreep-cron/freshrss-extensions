@@ -1,0 +1,8 @@
+{
+    "name": "Extension Manager",
+    "author": "featurecreep-cron",
+    "description": "Install, update, and remove extensions from the settings page",
+    "version": 1.0,
+    "entrypoint": "ExtensionManager",
+    "type": "user"
+}

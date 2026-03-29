@@ -1,0 +1,8 @@
+{
+    "name": "Sticky Reader",
+    "author": "featurecreep-cron",
+    "description": "Scroll straight to articles, keep controls within reach, read distraction-free",
+    "version": 1.0,
+    "entrypoint": "StickyReader",
+    "type": "user"
+}

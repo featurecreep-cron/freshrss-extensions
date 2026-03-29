@@ -1,0 +1,8 @@
+{
+    "name": "Silent Refresh",
+    "author": "featurecreep-cron",
+    "description": "Updates unread counts without interrupting your reading",
+    "version": 1.0,
+    "entrypoint": "SilentRefresh",
+    "type": "user"
+}

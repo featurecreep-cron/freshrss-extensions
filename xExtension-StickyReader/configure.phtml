@@ -1,0 +1,63 @@
+<?php $config = $this->getFullConfig(); ?>
+
+<form action="<?php echo _url('extension', 'configure', 'e', urlencode($this->getName())); ?>" method="post">
+    <input type="hidden" name="_csrf" value="<?php echo FreshRSS_Auth::csrfToken(); ?>" />
+
+    <div class="form-group">
+        <label class="group-name">Reading</label>
+        <div class="group-controls">
+            <div>
+                <input type="hidden" name="scroll_anchor" value="0" />
+                <label>
+                    <input type="checkbox" name="scroll_anchor" value="1" <?= $config['scroll_anchor'] ? 'checked' : '' ?>>
+                    Smooth scroll anchoring
+                </label>
+            </div>
+            <div>
+                <input type="hidden" name="title_feed_name" value="0" />
+                <label>
+                    <input type="checkbox" name="title_feed_name" value="1" <?= $config['title_feed_name'] ? 'checked' : '' ?>>
+                    Show feed name in toolbar
+                </label>
+            </div>
+            <div>
+                <input type="hidden" name="hide_feed_column" value="0" />
+                <label>
+                    <input type="checkbox" name="hide_feed_column" value="1" <?= $config['hide_feed_column'] ? 'checked' : '' ?>>
+                    Hide feed column in single-feed view
+                </label>
+            </div>
+        </div>
+    </div>
+
+    <div class="form-group">
+        <label for="scroll_target" class="group-name">When opening an article, scroll to</label>
+        <div class="group-controls">
+            <select name="scroll_target" id="scroll_target">
+                <option value="search_bar" <?= $config['scroll_target'] === 'search_bar' ? 'selected' : '' ?>>Article (toolbar and search bar visible, sidebar locked)</option>
+                <option value="control_bar" <?= $config['scroll_target'] === 'control_bar' ? 'selected' : '' ?>>Article (toolbar visible)</option>
+                <option value="title_row" <?= $config['scroll_target'] === 'title_row' ? 'selected' : '' ?>>Article (full screen)</option>
+            </select>
+        </div>
+    </div>
+
+    <div class="form-group">
+        <label class="group-name">Sidebar</label>
+        <div class="group-controls">
+            <div>
+                <input type="hidden" name="hide_sub_management" value="0" />
+                <label>
+                    <input type="checkbox" name="hide_sub_management" value="1" <?= $config['hide_sub_management'] ? 'checked' : '' ?>>
+                    Hide subscription management button
+                </label>
+            </div>
+        </div>
+    </div>
+
+    <div class="form-group form-actions">
+        <div class="group-controls">
+            <button type="submit" class="btn btn-important">Save</button>
+            <button type="reset" class="btn">Cancel</button>
+        </div>
+    </div>
+</form>
