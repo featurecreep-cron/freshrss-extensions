@@ -23,6 +23,8 @@ Fixes the jarring scroll jumps when switching between articles. Keeps the toolba
 
 Context menus on articles, feeds, and categories. Four zones (article header, article body, sidebar feed, sidebar category) with per-zone action toggles.
 
+![Right-click context menu](screenshots/context.png)
+
 Article actions: toggle read/star, open in tab, mark older/newer as read, add permanent title filter.
 Feed actions: mark all read/unread, recently read, open settings.
 Category actions: mark all read/unread, expand/collapse, manage subscriptions.
@@ -35,9 +37,13 @@ Updates sidebar unread counts via the FreshRSS JSON API without reloading the pa
 
 Adds a "Recently Read" link to the sidebar that filters to articles you've already read, sorted by when you last interacted with them.
 
+![Recently Read sidebar link](screenshots/recently_read.png)
+
 ### Extension Manager
 
-Install, update, and remove FreshRSS extensions without SSH or file access. Supports installing from any GitHub repository URL — paste a repo URL and click install. Uses atomic updates with automatic rollback on failure.
+Install, update, and remove FreshRSS extensions without SSH or file access. Add GitHub repository URLs as extension sources, browse available extensions, and install individually. Uses atomic updates with automatic rollback on failure.
+
+![Extension Manager with catalog](screenshots/extension_manager.png)
 
 ## Installation
 
