@@ -35,6 +35,12 @@
     font-weight: 600;
 }
 
+/* Version comparison in tables */
+.ext-mgr-version-installed {
+    opacity: 0.5;
+    text-decoration: line-through;
+}
+
 /* Add repository input */
 .ext-mgr-add-repo {
     margin: 12px 0 16px;

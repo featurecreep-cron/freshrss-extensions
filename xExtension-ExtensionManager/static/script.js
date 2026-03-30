@@ -307,6 +307,7 @@
 
       if (info) {
         if (catalogVersion && info.version && catalogVersion !== info.version) {
+          cells[1].innerHTML = '<span class="ext-mgr-version-installed">' + info.version + '</span> \u2192 ' + catalogVersion;
           td.appendChild(makeInstallButton('Update', extUrl, extName, null, null));
         } else {
           var badge = document.createElement('span');
@@ -359,7 +360,12 @@
       tr.appendChild(tdName);
 
       var tdVersion = document.createElement('td');
-      tdVersion.textContent = ext.version;
+      var info = installedByName[ext.name];
+      if (info && info.version !== String(ext.version)) {
+        tdVersion.innerHTML = '<span class="ext-mgr-version-installed">' + info.version + '</span> \u2192 ' + ext.version;
+      } else {
+        tdVersion.textContent = ext.version;
+      }
       tr.appendChild(tdVersion);
 
       var tdDesc = document.createElement('td');
@@ -367,7 +373,6 @@
       tr.appendChild(tdDesc);
 
       var tdAction = document.createElement('td');
-      var info = installedByName[ext.name];
 
       if (ext.dir === 'xExtension-ExtensionManager') {
         var selfBadge = document.createElement('span');
