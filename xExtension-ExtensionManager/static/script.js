@@ -276,9 +276,16 @@
 
     var headerRow = table.querySelector('thead tr') || table.querySelector('tr');
     if (headerRow) {
-      var th = document.createElement('th');
-      th.textContent = 'Actions';
-      headerRow.appendChild(th);
+      var versionTh = headerRow.querySelectorAll('th')[1];
+      if (versionTh) {
+        var installedTh = document.createElement('th');
+        installedTh.textContent = 'Installed';
+        versionTh.parentNode.insertBefore(installedTh, versionTh);
+        versionTh.textContent = 'Latest';
+      }
+      var actionsTh = document.createElement('th');
+      actionsTh.textContent = 'Actions';
+      headerRow.appendChild(actionsTh);
     }
 
     var installedByName = {};
@@ -302,24 +309,29 @@
       var extUrl = nameLink.getAttribute('href');
       var extName = nameLink.textContent.trim();
       var catalogVersion = cells[1].textContent.trim();
-      var td = document.createElement('td');
+
+      // Insert Installed column before Version
+      var installedTd = document.createElement('td');
       var info = installedByName[extName];
+      installedTd.textContent = info ? info.version : '';
+      cells[1].parentNode.insertBefore(installedTd, cells[1]);
+
+      var actionTd = document.createElement('td');
 
       if (info) {
         if (catalogVersion && info.version && catalogVersion !== info.version) {
-          cells[1].innerHTML = '<span class="ext-mgr-version-installed">' + info.version + '</span> \u2192 ' + catalogVersion;
-          td.appendChild(makeInstallButton('Update', extUrl, extName, null, null));
+          actionTd.appendChild(makeInstallButton('Update', extUrl, extName, null, null));
         } else {
           var badge = document.createElement('span');
           badge.className = 'ext-mgr-installed-badge';
           badge.textContent = '\u2713 Installed';
-          td.appendChild(badge);
+          actionTd.appendChild(badge);
         }
       } else if (extUrl) {
-        td.appendChild(makeInstallButton('Install', extUrl, extName, null, null));
+        actionTd.appendChild(makeInstallButton('Install', extUrl, extName, null, null));
       }
 
-      row.appendChild(td);
+      row.appendChild(actionTd);
     });
   }
 
@@ -335,7 +347,7 @@
 
     var thead = document.createElement('thead');
     var headerRow = document.createElement('tr');
-    ['Name', 'Version', 'Description', 'Actions'].forEach(function (h) {
+    ['Name', 'Installed', 'Latest', 'Description', 'Actions'].forEach(function (h) {
       var th = document.createElement('th');
       th.textContent = h;
       headerRow.appendChild(th);
@@ -359,13 +371,14 @@
       tdName.textContent = ext.name;
       tr.appendChild(tdName);
 
-      var tdVersion = document.createElement('td');
       var info = installedByName[ext.name];
-      if (info && info.version !== String(ext.version)) {
-        tdVersion.innerHTML = '<span class="ext-mgr-version-installed">' + info.version + '</span> \u2192 ' + ext.version;
-      } else {
-        tdVersion.textContent = ext.version;
-      }
+
+      var tdInstalled = document.createElement('td');
+      tdInstalled.textContent = info ? info.version : '';
+      tr.appendChild(tdInstalled);
+
+      var tdVersion = document.createElement('td');
+      tdVersion.textContent = ext.version;
       tr.appendChild(tdVersion);
 
       var tdDesc = document.createElement('td');
