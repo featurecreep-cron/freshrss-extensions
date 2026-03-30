@@ -441,7 +441,7 @@
         params = { dir: extDir, tmpDir: tmpDir };
       } else if (extUrl) {
         // Direct URL install (community table)
-        params = { url: extUrl };
+        params = { url: extUrl, name: extName };
       }
 
       apiCall('install', params).then(function (data) {

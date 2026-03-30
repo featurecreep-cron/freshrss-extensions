@@ -30,9 +30,10 @@ final class FreshExtension_extmgr_Controller extends Minz_ActionController {
             $this->sendJson(['error' => is_string($result) ? $result : 'Unknown error'], 500);
         }
 
-        // Direct URL install (single-extension repos)
+        // Direct URL install
         if ($url) {
-            $result = ExtensionManagerExtension::downloadAndInstall($url);
+            $name = Minz_Request::paramString('name');
+            $result = ExtensionManagerExtension::downloadAndInstall($url, $name ?: null);
             if ($result === true) {
                 $this->sendJson(['success' => true, 'message' => 'Extension installed successfully']);
             }

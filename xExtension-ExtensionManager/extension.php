@@ -212,7 +212,7 @@ class ExtensionManagerExtension extends Minz_Extension {
     /**
      * Legacy: install directly from a GitHub URL (single-extension repos).
      */
-    public static function downloadAndInstall($url) {
+    public static function downloadAndInstall($url, $extName = null) {
         // Handle tree URLs: https://github.com/user/repo/tree/branch/xExtension-Foo
         $targetExtDir = null;
         if (preg_match('#^(https://github\.com/[a-zA-Z0-9._-]+/[a-zA-Z0-9._-]+)/tree/[^/]+/(xExtension-[a-zA-Z0-9._-]+)$#', $url, $matches)) {
@@ -249,7 +249,20 @@ class ExtensionManagerExtension extends Minz_Extension {
             return $installResult;
         }
 
-        // Multi-extension repos should use the catalog flow
+        // Multi-extension repo with a name hint — find and install the matching one
+        if ($extName && count($extensions) > 1) {
+            foreach ($extensions as $ext) {
+                if ($ext['name'] === $extName) {
+                    $installResult = self::installFromExtracted($tmpDir, $ext['dir']);
+                    self::recursiveDelete($tmpDir);
+                    return $installResult;
+                }
+            }
+            self::recursiveDelete($tmpDir);
+            return 'Extension "' . $extName . '" not found in repository';
+        }
+
+        // Multi-extension repos without a name hint
         self::recursiveDelete($tmpDir);
         return 'Repository contains multiple extensions. Add it as a repository source in Extension Manager settings, then install individual extensions from the extensions page.';
     }
