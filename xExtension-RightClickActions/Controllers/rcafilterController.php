@@ -45,11 +45,20 @@ final class FreshExtension_rcafilter_Controller extends Minz_ActionController {
         $feed->_filtersAction('read', $existing);
 
         $ok = $feedDAO->updateFeed($feedId, ['attributes' => $feed->attributes()]);
-        if ($ok !== false) {
-            $this->sendJson(['success' => true, 'message' => 'Filter added: ' . $filter]);
-        } else {
+        if ($ok === false) {
             $this->sendJson(['error' => 'Failed to save feed'], 500);
         }
+
+        // Mark existing matching articles as read
+        $entryDAO = FreshRSS_Factory::createEntryDao();
+        $search = new FreshRSS_BooleanSearch($filter);
+        $marked = $entryDAO->markReadFeed($feedId, uTimeString(), $search);
+
+        $msg = 'Filter added';
+        if ($marked !== false && $marked > 0) {
+            $msg .= ', ' . $marked . ' existing article' . ($marked === 1 ? '' : 's') . ' marked read';
+        }
+        $this->sendJson(['success' => true, 'message' => $msg]);
     }
 
     private function sendJson(array $data, int $status = 200): never {
