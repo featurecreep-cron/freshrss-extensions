@@ -43,11 +43,30 @@
     }
   }
 
+  var intervalId = null;
+
   function refreshSidebar(config) {
     // Use FreshRSS's lightweight JSON endpoint (~400 bytes vs ~200KB HTML)
-    fetch('./?c=javascript&a=nbUnreadsPerFeed', { credentials: 'same-origin' })
+    fetch('./?c=javascript&a=nbUnreadsPerFeed', {
+      credentials: 'same-origin',
+      redirect: 'manual',
+    })
       .then(function (r) {
+        // redirect: 'manual' turns redirects into opaque responses (type 'opaqueredirect', status 0)
+        // This catches auth expiry — FreshRSS redirects to login when session dies
+        if (r.type === 'opaqueredirect' || r.status === 0) {
+          if (intervalId) clearInterval(intervalId);
+          window.location.reload();
+          return null;
+        }
         if (!r.ok) return null;
+        var contentType = r.headers.get('content-type') || '';
+        if (contentType.indexOf('json') === -1) {
+          // Got HTML instead of JSON — session expired
+          if (intervalId) clearInterval(intervalId);
+          window.location.reload();
+          return null;
+        }
         return r.json();
       })
       .then(function (data) {
@@ -123,7 +142,7 @@
       observer.observe(aside, { attributes: true, subtree: true, attributeFilter: ['data-unread'] });
     }
 
-    setInterval(function () { refreshSidebar(config); }, intervalMs);
+    intervalId = setInterval(function () { refreshSidebar(config); }, intervalMs);
   }
 
   if (document.readyState === 'loading') {
