@@ -19,7 +19,6 @@
 
     if (!isExtensionsPage()) return;
 
-    addVersionsToInstalledList();
     addRemoveToInstalledList();
     addButtonsToCommunityTable();
     addRepoInput();
@@ -206,85 +205,12 @@
       }
       var table = buildRepoTable(data.extensions, data.tmpDir);
       section.appendChild(table);
-      annotateInstalledWithUpdates(data.extensions, data.tmpDir);
     }).catch(function (err) {
       loading.remove();
       var errEl = document.createElement('p');
       errEl.textContent = 'Error: ' + err.message;
       errEl.className = 'ext-mgr-error';
       section.appendChild(errEl);
-    });
-  }
-
-  // Map extension name → installed list <li> element for update annotations
-  var installedListItems = {};
-
-  function addVersionsToInstalledList() {
-    var listItems = document.querySelectorAll('ul li');
-    listItems.forEach(function (li) {
-      var configLink = li.querySelector('a[href*="a=configure"]');
-      if (!configLink) return;
-
-      var href = configLink.getAttribute('href');
-      var match = href.match(/e=([^&]+)/);
-      if (!match) return;
-      var extName = decodeURIComponent(match[1]).replace(/\+/g, ' ');
-
-      // Find installed version
-      var version = null;
-      for (var dir in installed) {
-        if (installed[dir].name === extName) {
-          version = installed[dir].version;
-          break;
-        }
-      }
-
-      if (version) {
-        var vBadge = document.createElement('span');
-        vBadge.className = 'ext-mgr-version-badge';
-        vBadge.textContent = 'v' + version;
-        configLink.parentNode.insertBefore(vBadge, configLink);
-      }
-
-      installedListItems[extName] = li;
-    });
-  }
-
-  function annotateInstalledWithUpdates(catalogExtensions, tmpDir) {
-    catalogExtensions.forEach(function (ext) {
-      var li = installedListItems[ext.name];
-      if (!li) return;
-      // Check if already annotated
-      if (li.querySelector('.ext-mgr-update')) return;
-
-      var installedVersion = null;
-      var installedDir = null;
-      for (var dir in installed) {
-        if (installed[dir].name === ext.name) {
-          installedVersion = String(installed[dir].version);
-          installedDir = dir;
-          break;
-        }
-      }
-
-      if (!installedVersion || installedVersion === String(ext.version)) return;
-      if (installedDir === 'xExtension-ExtensionManager') return;
-
-      // Update the version badge
-      var badge = li.querySelector('.ext-mgr-version-badge');
-      if (badge) {
-        badge.textContent = 'v' + installedVersion + ' → v' + ext.version;
-        badge.classList.add('ext-mgr-version-outdated');
-      }
-
-      // Add update button
-      var btn = makeInstallButton('Update', null, ext.name, ext.dir, tmpDir);
-      var configLink = li.querySelector('a[href*="a=configure"]');
-      if (configLink) {
-        configLink.parentNode.insertBefore(btn, configLink);
-      } else {
-        li.appendChild(btn);
-      }
     });
   }
 
