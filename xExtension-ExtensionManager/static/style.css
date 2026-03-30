@@ -35,6 +35,20 @@
     font-weight: 600;
 }
 
+/* Version badges in installed list */
+.ext-mgr-version-badge {
+    font-size: 0.75em;
+    opacity: 0.5;
+    margin: 0 6px;
+    vertical-align: middle;
+}
+
+.ext-mgr-version-outdated {
+    opacity: 1;
+    color: #FF9800;
+    font-weight: 600;
+}
+
 /* Add repository input */
 .ext-mgr-add-repo {
     margin: 12px 0 16px;
