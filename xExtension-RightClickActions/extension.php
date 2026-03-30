@@ -46,6 +46,7 @@ class RightClickActionsExtension extends Minz_Extension {
     ];
 
     public function init() {
+        $this->registerController('rcafilter');
         Minz_View::appendStyle($this->getFileUrl('style.css'));
         Minz_View::appendScript($this->getFileUrl('script.js'));
         $this->registerHook('js_vars', [$this, 'addVariables']);
@@ -54,6 +55,7 @@ class RightClickActionsExtension extends Minz_Extension {
     public function addVariables($vars) {
         $config = $this->getFullConfig();
         $vars[$this->getName()]['configuration'] = $config;
+        $vars[$this->getName()]['csrf'] = FreshRSS_Auth::csrfToken();
         return $vars;
     }
 

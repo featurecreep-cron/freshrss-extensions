@@ -233,37 +233,22 @@
     };
   }
 
-  function addPermanentFilter(feedId, keyword) {
-    var feedUrl = './?c=subscription&a=feed&id=' + feedId;
-    fetch(feedUrl, { credentials: 'same-origin' })
-      .then(function (r) { return r.text(); })
-      .then(function (html) {
-        var doc = new DOMParser().parseFromString(html, 'text/html');
-        var csrf = doc.querySelector('input[name="_csrf"]');
-        var filterField = doc.querySelector('#filteractions_read');
-        if (!csrf || !filterField) { showNotification('Error: could not find feed settings', true); return; }
+  function addPermanentFilter(feedId, filter) {
+    var csrfToken = (context.extensions && context.extensions['Right-Click Actions'] && context.extensions['Right-Click Actions'].csrf) || '';
+    var fd = new FormData();
+    fd.append('id', feedId);
+    fd.append('filter', filter);
+    fd.append('_csrf', csrfToken);
 
-        var existing = filterField.value.trim();
-        var newRule = 'intitle:' + keyword;
-        if (existing.includes(newRule)) {
-          showNotification('Filter already exists');
-          return;
-        }
-        var updated = existing ? existing + '\n' + newRule : newRule;
-
-        var form = filterField.closest('form');
-        var formData = new FormData(form);
-        formData.set('filteractions_read', updated);
-
-        return fetch(feedUrl, {
-          method: 'POST',
-          body: formData,
-          credentials: 'same-origin'
-        });
-      })
-      .then(function (r) {
-        if (r && r.ok) showNotification('Filter saved: intitle:' + keyword);
-        else if (r) showNotification('Error saving filter: HTTP ' + r.status, true);
+    fetch('./?c=rcafilter&a=add', {
+      method: 'POST',
+      body: fd,
+      credentials: 'same-origin'
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (data.success) showNotification(data.message);
+        else showNotification(data.error || 'Unknown error', true);
       })
       .catch(function (err) { showNotification('Error: ' + err, true); });
   }
@@ -386,20 +371,23 @@
       case 'filter_title':
         var titleEl = targetFlux.querySelector('.title');
         var articleTitle = titleEl ? titleEl.textContent.trim() : '';
-        var keyword = prompt('Enter title keyword to permanently filter as read:', articleTitle);
-        if (!keyword) break;
-        var lower = keyword.toLowerCase();
-        var matched = 0;
-        fluxes.forEach(function (f) {
-          var t = f.querySelector('.title');
-          if (t && t.textContent.toLowerCase().includes(lower)) {
-            setRead(f, true);
-            matched++;
-          }
-        });
         var feedId = targetFlux.dataset.feed;
-        if (feedId) addPermanentFilter(feedId, keyword);
-        if (matched > 0) showNotification(matched + ' articles hidden on page');
+        var filter = prompt('Filter expression (marks matching articles as read):', 'intitle:' + articleTitle);
+        if (!filter || !feedId) break;
+        addPermanentFilter(feedId, filter);
+        // Also mark matching articles on the current page as read
+        var lower = filter.replace(/^intitle:/i, '').toLowerCase();
+        if (lower) {
+          var matched = 0;
+          fluxes.forEach(function (f) {
+            var t = f.querySelector('.title');
+            if (t && t.textContent.toLowerCase().includes(lower)) {
+              setRead(f, true);
+              matched++;
+            }
+          });
+          if (matched > 0) showNotification(matched + ' articles marked read on page');
+        }
         break;
       case 'filter_feed':
         var feedLink = targetFlux.querySelector('.flux_header a[href*="get=f_"]');
