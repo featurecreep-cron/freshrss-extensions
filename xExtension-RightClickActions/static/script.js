@@ -141,8 +141,8 @@
       if (actionId === 'filter_title' && targetFlux) {
         var titleEl = targetFlux.querySelector('.flux_header .title');
         var text = titleEl ? titleEl.textContent.trim() : '';
-        if (text.length > 35) text = text.substring(0, 35) + '\u2026';
-        actionLabel = 'Hide: \u201C' + text + '\u201D';
+        if (text.length > 40) text = text.substring(0, 40) + '\u2026';
+        actionLabel = 'Filter: ' + text;
       }
 
       var iconSpan = document.createElement('span');
@@ -372,22 +372,20 @@
         var titleEl = targetFlux.querySelector('.title');
         var articleTitle = titleEl ? titleEl.textContent.trim() : '';
         var feedId = targetFlux.dataset.feed;
-        var filter = prompt('Filter expression (marks matching articles as read):', 'intitle:' + articleTitle);
-        if (!filter || !feedId) break;
-        addPermanentFilter(feedId, filter);
+        var keyword = prompt('Filter articles with titles containing:', articleTitle);
+        if (!keyword || !feedId) break;
+        addPermanentFilter(feedId, 'intitle:' + keyword);
         // Also mark matching articles on the current page as read
-        var lower = filter.replace(/^intitle:/i, '').toLowerCase();
-        if (lower) {
-          var matched = 0;
-          fluxes.forEach(function (f) {
-            var t = f.querySelector('.title');
-            if (t && t.textContent.toLowerCase().includes(lower)) {
-              setRead(f, true);
-              matched++;
-            }
-          });
-          if (matched > 0) showNotification(matched + ' articles marked read on page');
-        }
+        var lower = keyword.toLowerCase();
+        var matched = 0;
+        fluxes.forEach(function (f) {
+          var t = f.querySelector('.title');
+          if (t && t.textContent.toLowerCase().includes(lower)) {
+            setRead(f, true);
+            matched++;
+          }
+        });
+        if (matched > 0) showNotification(matched + ' articles marked read on page');
         break;
       case 'filter_feed':
         var feedLink = targetFlux.querySelector('.flux_header a[href*="get=f_"]');
