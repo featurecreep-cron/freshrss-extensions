@@ -213,6 +213,13 @@ class ExtensionManagerExtension extends Minz_Extension {
      * Legacy: install directly from a GitHub URL (single-extension repos).
      */
     public static function downloadAndInstall($url) {
+        // Handle tree URLs: https://github.com/user/repo/tree/branch/xExtension-Foo
+        $targetExtDir = null;
+        if (preg_match('#^(https://github\.com/[a-zA-Z0-9._-]+/[a-zA-Z0-9._-]+)/tree/[^/]+/(xExtension-[a-zA-Z0-9._-]+)$#', $url, $matches)) {
+            $url = $matches[1];
+            $targetExtDir = $matches[2];
+        }
+
         $result = self::fetchRepoCatalog($url);
         if (isset($result['error'])) {
             return $result['error'];
@@ -220,6 +227,19 @@ class ExtensionManagerExtension extends Minz_Extension {
 
         $extensions = $result['extensions'];
         $tmpDir = $result['tmpDir'];
+
+        // Tree URL pointed to a specific extension — install just that one
+        if ($targetExtDir) {
+            foreach ($extensions as $ext) {
+                if ($ext['dir'] === $targetExtDir) {
+                    $installResult = self::installFromExtracted($tmpDir, $ext['dir']);
+                    self::recursiveDelete($tmpDir);
+                    return $installResult;
+                }
+            }
+            self::recursiveDelete($tmpDir);
+            return 'Extension ' . $targetExtDir . ' not found in repository';
+        }
 
         // For single-extension repos, install directly
         if (count($extensions) === 1) {

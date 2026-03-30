@@ -262,6 +262,19 @@
     });
   }
 
+  function compareVersions(a, b) {
+    var pa = String(a).split('.').map(Number);
+    var pb = String(b).split('.').map(Number);
+    var len = Math.max(pa.length, pb.length);
+    for (var i = 0; i < len; i++) {
+      var na = pa[i] || 0;
+      var nb = pb[i] || 0;
+      if (na > nb) return 1;
+      if (na < nb) return -1;
+    }
+    return 0;
+  }
+
   function addButtonsToCommunityTable() {
     var tables = document.querySelectorAll('table');
     var table = null;
@@ -319,7 +332,7 @@
       var actionTd = document.createElement('td');
 
       if (info) {
-        if (catalogVersion && info.version && catalogVersion !== info.version) {
+        if (catalogVersion && info.version && compareVersions(catalogVersion, info.version) > 0) {
           actionTd.appendChild(makeInstallButton('Update', extUrl, extName, null, null));
         } else {
           var badge = document.createElement('span');
@@ -393,7 +406,7 @@
         selfBadge.textContent = '(self)';
         tdAction.appendChild(selfBadge);
       } else if (info) {
-        if (String(ext.version) !== info.version) {
+        if (compareVersions(String(ext.version), info.version) > 0) {
           tdAction.appendChild(makeInstallButton('Update', null, ext.name, ext.dir, tmpDir));
         } else {
           var badge = document.createElement('span');
