@@ -1,0 +1,8 @@
+{
+    "name": "YouTube Embed Fix",
+    "author": "featurecreep-cron",
+    "description": "Fix YouTube embed playback in article content by adding origin parameter",
+    "version": "0.1.0",
+    "entrypoint": "YouTubeEmbed",
+    "type": "user"
+}

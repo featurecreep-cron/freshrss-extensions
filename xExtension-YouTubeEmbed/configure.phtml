@@ -1,0 +1,15 @@
+<form action="<?= _url('extension', 'configure', 'e', urlencode($this->extension->getName())) ?>"
+      method="post">
+    <input type="hidden" name="_csrf" value="<?= FreshRSS_Auth::csrfToken() ?>">
+    <div class="form-group">
+        <label for="origin">Origin URL</label>
+        <input type="url" id="origin" name="origin"
+               value="<?= htmlspecialchars($this->extension->getUserConfigurationValue('origin') ?? '', ENT_COMPAT, 'UTF-8') ?>"
+               placeholder="https://freshrss.example.com"
+               size="40">
+        <p class="help">Your FreshRSS URL. Leave empty to auto-detect from the request.</p>
+    </div>
+    <div class="form-group form-actions">
+        <button type="submit" class="btn btn-important">Save</button>
+    </div>
+</form>
