@@ -27,8 +27,16 @@ class QuickFilterExtension extends Minz_Extension {
         }
 
         $showTags = 'n';
-        if (class_exists('FreshRSS_Context', false) && FreshRSS_Context::hasUserConf()) {
-            $showTags = FreshRSS_Context::userConf()->attributeString('show_tags') ?: 'n';
+        try {
+            if (class_exists('FreshRSS_Context', false) && FreshRSS_Context::hasUserConf()) {
+                $conf = FreshRSS_Context::userConf();
+                // show_tags may be a direct property or an attribute depending on FreshRSS version
+                if (method_exists($conf, 'attributeString')) {
+                    $showTags = $conf->attributeString('show_tags') ?: 'n';
+                }
+            }
+        } catch (Throwable $e) {
+            // Fail safe — assume tags not shown
         }
 
         $vars[$this->getName()] = [
