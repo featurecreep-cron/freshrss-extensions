@@ -87,9 +87,12 @@ class YouTubeEmbedExtension extends Minz_Extension {
             return $this->origin;
         }
 
-        // Auto-detect from request
+        // Auto-detect from request, accounting for reverse proxies
         if (!empty($_SERVER['HTTP_HOST'])) {
-            $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+            $isHttps = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+                || (!empty($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https')
+                || (!empty($_SERVER['HTTP_X_FORWARDED_SSL']) && $_SERVER['HTTP_X_FORWARDED_SSL'] === 'on');
+            $scheme = $isHttps ? 'https' : 'http';
             $this->origin = $scheme . '://' . $_SERVER['HTTP_HOST'];
             return $this->origin;
         }
