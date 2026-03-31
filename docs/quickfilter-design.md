@@ -17,7 +17,7 @@ QuickFilter is a filter builder UI for FreshRSS. It surfaces filter creation whe
 1. **No parallel filter engine.** FreshRSS evaluates all filters. QuickFilter creates, displays, and manages `FreshRSS_FilterAction` objects via the existing PHP API.
 2. **Single source of truth.** The extension reads all filter rules on a feed and displays them regardless of origin. No manifest tracking which filters QuickFilter created vs user-created. A filter is a filter.
 3. **Per-feed scope.** Each filter belongs to one feed. Cross-feed and category-level operations are out of scope.
-4. **Forward-only by default.** Inline filter creation affects future articles only. Retroactive application is an explicit, previewed action in the filter manager.
+4. **Forward-only by default.** Inline filter creation affects future articles only. The filter manager's add-filter form offers "Apply to existing articles" as an opt-in checkbox (unchecked by default). Retroactive application always shows a preview before executing.
 5. **Abstraction layer over filter storage.** All filter reads and writes go through a `QuickFilterService` class, not direct `_filtersAction()` calls. This isolates FreshRSS API assumptions and allows v2 to add metadata without rewriting UI or controller logic.
 
 ### How filters work in FreshRSS
@@ -135,14 +135,17 @@ A dedicated panel for viewing and managing all filter rules on the current feed.
   Type:    [Author ▼]    Value: [Eugene Volokh ▼]
   Action:  [☆ Star  ▼]
 
-  [Preview matches]  [Save]
+  [ ] Apply to existing articles (23 match)
+
+  [Preview]  [Save]
 ```
 
 - Author and Tag types show dropdowns populated from feed data
 - Keyword type shows a free text input with helper text: "Matches words in article titles (case-insensitive)"
 - Minimum keyword length: 3 characters
-- "Preview matches" shows count and list of matching existing articles
-- "Save" creates the filter (forward-only). To apply retroactively, use "Preview matches" → "Apply to existing"
+- "Apply to existing articles" checkbox (unchecked by default) — live match count shown next to it
+- When checked, "Save" opens the preview window before applying. When unchecked, "Save" creates a forward-only filter immediately.
+- "Preview" always available to see matching articles regardless of checkbox state
 
 **Note on filter coexistence:** QuickFilter shows ALL filters on the feed, including those created via FreshRSS Reading settings. The footer note makes this explicit. Filters created in either place are the same thing — native `FreshRSS_FilterAction` objects.
 
