@@ -3,6 +3,7 @@
 (function () {
   var installed = {};
   var repos = [];
+  var isAdmin = false;
 
   var _initRetries = 0;
   function init() {
@@ -16,12 +17,17 @@
 
     installed = extConfig.configuration.installed || {};
     repos = extConfig.configuration.repos || [];
+    isAdmin = !!extConfig.configuration.is_admin;
 
     if (!isExtensionsPage()) return;
 
-    addRemoveToInstalledList();
+    if (isAdmin) {
+      addRemoveToInstalledList();
+    }
     addButtonsToCommunityTable();
-    addRepoInput();
+    if (isAdmin) {
+      addRepoInput();
+    }
     if (repos.length > 0) {
       loadRepoCatalogs();
     }
@@ -332,7 +338,7 @@
       var actionTd = document.createElement('td');
 
       if (info) {
-        if (catalogVersion && info.version && compareVersions(catalogVersion, info.version) > 0) {
+        if (isAdmin && catalogVersion && info.version && compareVersions(catalogVersion, info.version) > 0) {
           actionTd.appendChild(makeInstallButton('Update', extUrl, extName, null, null));
         } else {
           var badge = document.createElement('span');
@@ -340,7 +346,7 @@
           badge.textContent = '\u2713 Installed';
           actionTd.appendChild(badge);
         }
-      } else if (extUrl) {
+      } else if (isAdmin && extUrl) {
         actionTd.appendChild(makeInstallButton('Install', extUrl, extName, null, null));
       }
 
@@ -406,7 +412,7 @@
         selfBadge.textContent = '(self)';
         tdAction.appendChild(selfBadge);
       } else if (info) {
-        if (compareVersions(String(ext.version), info.version) > 0) {
+        if (isAdmin && compareVersions(String(ext.version), info.version) > 0) {
           tdAction.appendChild(makeInstallButton('Update', null, ext.name, ext.dir, tmpDir));
         } else {
           var badge = document.createElement('span');
@@ -414,7 +420,7 @@
           badge.textContent = '\u2713 Installed';
           tdAction.appendChild(badge);
         }
-      } else {
+      } else if (isAdmin) {
         tdAction.appendChild(makeInstallButton('Install', null, ext.name, ext.dir, tmpDir));
       }
 

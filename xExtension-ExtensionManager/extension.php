@@ -15,6 +15,7 @@ class ExtensionManagerExtension extends Minz_Extension {
         $vars[$this->getName()]['configuration'] = [
             'installed' => self::getInstalledExtensions(),
             'repos' => $this->getUserConfigurationValue('repos') ?: [],
+            'is_admin' => FreshRSS_Auth::hasAccess('admin'),
         ];
         return $vars;
     }

@@ -12,7 +12,14 @@ final class FreshExtension_extmgr_Controller extends Minz_ActionController {
         }
     }
 
+    private function requireAdmin(): void {
+        if (!FreshRSS_Auth::hasAccess('admin')) {
+            $this->sendJson(['error' => 'Admin access required'], 403);
+        }
+    }
+
     public function installAction(): void {
+        $this->requireAdmin();
         if (!Minz_Request::isPost()) {
             $this->sendJson(['error' => 'POST required'], 405);
         }
@@ -44,6 +51,7 @@ final class FreshExtension_extmgr_Controller extends Minz_ActionController {
     }
 
     public function catalogAction(): void {
+        $this->requireAdmin();
         $url = Minz_Request::paramString('url');
         if (!$url) {
             $this->sendJson(['error' => 'Missing url parameter'], 400);
@@ -61,6 +69,7 @@ final class FreshExtension_extmgr_Controller extends Minz_ActionController {
     }
 
     public function removeAction(): void {
+        $this->requireAdmin();
         if (!Minz_Request::isPost()) {
             $this->sendJson(['error' => 'POST required'], 405);
         }
