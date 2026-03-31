@@ -31,31 +31,40 @@ class YouTubeEmbedExtension extends Minz_Extension {
             return $entry;
         }
 
-        // Rewrite YouTube embed URLs to add origin parameter and referrerpolicy
+        // Match iframes with YouTube URLs in src OR data-original (FreshRSS lazy-loading)
         $content = preg_replace_callback(
-            '#(<iframe\b[^>]*\bsrc=["\'])(https?://(?:www\.)?youtube(?:-nocookie)?\.com/embed/[^"\']*?)(["\'][^>]*>)#i',
+            '#(<iframe\b)([^>]*?)(\s*/?>)#i',
             function ($matches) use ($origin) {
-                $before = $matches[1];
-                $url = $matches[2];
-                $after = $matches[3];
+                $tag = $matches[1] . $matches[2] . $matches[3];
 
-                // Add origin parameter if not already present
-                if (strpos($url, 'origin=') === false) {
-                    $url .= (strpos($url, '?') !== false ? '&' : '?') . 'origin=' . urlencode($origin);
+                // Check if this iframe has a YouTube URL in src or data-original
+                if (!preg_match('#(?:src|data-original)=["\']https?://(?:www\.)?youtube(?:-nocookie)?\.com/embed/#i', $tag)) {
+                    return $tag;
                 }
 
-                // Ensure referrerpolicy attribute is present on the iframe
-                $iframeTag = $before . $url . $after;
-                if (stripos($iframeTag, 'referrerpolicy') === false) {
-                    $iframeTag = str_replace('<iframe ', '<iframe referrerpolicy="origin" ', $iframeTag);
+                // Add origin parameter to YouTube URLs in both src and data-original
+                $tag = preg_replace_callback(
+                    '#((?:src|data-original)=["\'])(https?://(?:www\.)?youtube(?:-nocookie)?\.com/embed/[^"\']*?)(["\'])#i',
+                    function ($m) use ($origin) {
+                        $url = $m[2];
+                        if (strpos($url, 'origin=') === false) {
+                            $url .= (strpos($url, '?') !== false ? '&' : '?') . 'origin=' . urlencode($origin);
+                        }
+                        return $m[1] . $url . $m[3];
+                    },
+                    $tag
+                );
+
+                // Add referrerpolicy if missing
+                if (stripos($tag, 'referrerpolicy') === false) {
+                    $tag = preg_replace('#<iframe\b#i', '<iframe referrerpolicy="origin"', $tag);
                 }
 
-                // Ensure allow attribute includes autoplay and encrypted-media
-                if (stripos($iframeTag, 'allow=') === false) {
-                    $iframeTag = str_replace('<iframe ', '<iframe allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" ', $iframeTag);
-                }
+                // Remove sandbox attribute — YouTube embeds need unrestricted
+                // access to verify embedder identity via ancestorOrigins
+                $tag = preg_replace('#\s*sandbox="[^"]*"#i', '', $tag);
 
-                return $iframeTag;
+                return $tag;
             },
             $content
         );
