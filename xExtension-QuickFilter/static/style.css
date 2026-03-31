@@ -1,0 +1,561 @@
+/* QuickFilter — FreshRSS extension styles */
+
+/* ── CSS Custom Properties ── */
+
+:root {
+  --qf-positive: #2e7d32;
+  --qf-negative: #c62828;
+  --qf-positive-bg: rgba(46, 125, 50, 0.12);
+  --qf-negative-bg: rgba(198, 40, 40, 0.12);
+  --qf-icon-muted: #999;
+  --qf-panel-bg: #fff;
+  --qf-panel-border: #ddd;
+  --qf-panel-shadow: rgba(0, 0, 0, 0.15);
+  --qf-text: #333;
+  --qf-text-muted: #666;
+  --qf-input-bg: #fff;
+  --qf-input-border: #ccc;
+  --qf-hover-bg: #f5f5f5;
+  --qf-overlay-bg: rgba(0, 0, 0, 0.4);
+}
+
+[data-theme="dark"],
+.dark {
+  --qf-positive: #66bb6a;
+  --qf-negative: #ef5350;
+  --qf-positive-bg: rgba(102, 187, 106, 0.15);
+  --qf-negative-bg: rgba(239, 83, 80, 0.15);
+  --qf-icon-muted: #777;
+  --qf-panel-bg: #2a2a2a;
+  --qf-panel-border: #444;
+  --qf-panel-shadow: rgba(0, 0, 0, 0.4);
+  --qf-text: #ddd;
+  --qf-text-muted: #999;
+  --qf-input-bg: #333;
+  --qf-input-border: #555;
+  --qf-hover-bg: #333;
+  --qf-overlay-bg: rgba(0, 0, 0, 0.6);
+}
+
+/* ── Inline Controls ── */
+
+.qf-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: 4px;
+  vertical-align: middle;
+}
+
+.qf-hover-only {
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.flux:hover .qf-hover-only,
+.qf-hover-only:focus-within {
+  opacity: 1;
+}
+
+/* Mobile: always show controls (no hover) */
+@media (hover: none) {
+  .qf-hover-only {
+    opacity: 1;
+  }
+}
+
+.qf-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--qf-icon-muted);
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  border-radius: 3px;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+
+.qf-btn:hover {
+  background: var(--qf-hover-bg);
+}
+
+.qf-btn:focus-visible {
+  outline: 2px solid var(--qf-positive);
+  outline-offset: 1px;
+}
+
+.qf-star.qf-active {
+  color: var(--qf-positive);
+}
+
+.qf-hide.qf-active {
+  color: var(--qf-negative);
+}
+
+/* Mobile: larger tap targets */
+@media (hover: none) {
+  .qf-btn {
+    width: 44px;
+    height: 44px;
+    font-size: 18px;
+  }
+}
+
+/* ── Active filter visual indication ── */
+
+.qf-active-positive {
+  color: var(--qf-positive) !important;
+}
+
+.qf-active-negative {
+  color: var(--qf-negative) !important;
+}
+
+/* ── Title keyword highlighting ── */
+
+.qf-highlight-positive {
+  background: var(--qf-positive-bg);
+  border-radius: 2px;
+  padding: 0 2px;
+}
+
+.qf-highlight-negative {
+  background: var(--qf-negative-bg);
+  border-radius: 2px;
+  padding: 0 2px;
+}
+
+/* ── Filter Manager Button ── */
+
+.qf-manager-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--qf-text-muted);
+  font-size: 18px;
+  cursor: pointer;
+  border-radius: 3px;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+
+.qf-manager-btn:hover {
+  color: var(--qf-text);
+  background: var(--qf-hover-bg);
+}
+
+.qf-manager-btn:focus-visible {
+  outline: 2px solid var(--qf-positive);
+  outline-offset: 1px;
+}
+
+/* ── Filter Manager Panel ── */
+
+.qf-panel {
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: 400px;
+  max-width: 100vw;
+  height: 100vh;
+  background: var(--qf-panel-bg);
+  border-left: 1px solid var(--qf-panel-border);
+  box-shadow: -2px 0 8px var(--qf-panel-shadow);
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: qf-slide-in 0.2s ease;
+}
+
+@keyframes qf-slide-in {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+
+.qf-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--qf-panel-border);
+  flex-shrink: 0;
+}
+
+.qf-panel-header h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--qf-text);
+}
+
+.qf-panel-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--qf-text-muted);
+  font-size: 20px;
+  cursor: pointer;
+  border-radius: 3px;
+}
+
+.qf-panel-close:hover {
+  background: var(--qf-hover-bg);
+  color: var(--qf-text);
+}
+
+.qf-panel-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+}
+
+/* ── Filter List ── */
+
+.qf-filter-list {
+  margin-bottom: 16px;
+}
+
+.qf-empty {
+  color: var(--qf-text-muted);
+  font-size: 14px;
+  margin: 0;
+  padding: 8px 0;
+}
+
+.qf-rules {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.qf-rule {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--qf-panel-border);
+  font-size: 14px;
+  color: var(--qf-text);
+}
+
+.qf-rule:last-child {
+  border-bottom: none;
+}
+
+.qf-rule-icon {
+  flex-shrink: 0;
+  font-size: 16px;
+  width: 20px;
+  text-align: center;
+}
+
+.qf-rule-icon.qf-positive {
+  color: var(--qf-positive);
+}
+
+.qf-rule-icon.qf-negative {
+  color: var(--qf-negative);
+}
+
+.qf-rule-desc {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.qf-rule-actions {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+/* ── Buttons (small) ── */
+
+.qf-btn-small {
+  padding: 4px 10px;
+  border: 1px solid var(--qf-input-border);
+  background: var(--qf-input-bg);
+  color: var(--qf-text);
+  font-size: 12px;
+  border-radius: 3px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s ease;
+}
+
+.qf-btn-small:hover {
+  background: var(--qf-hover-bg);
+}
+
+.qf-btn-small:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.qf-btn-primary {
+  background: var(--qf-positive);
+  color: #fff;
+  border-color: var(--qf-positive);
+}
+
+.qf-btn-primary:hover {
+  opacity: 0.9;
+  background: var(--qf-positive);
+}
+
+.qf-btn-danger {
+  color: var(--qf-negative);
+  border-color: var(--qf-negative);
+}
+
+.qf-btn-danger:hover {
+  background: var(--qf-negative-bg);
+}
+
+/* ── Add Filter Form ── */
+
+.qf-add-form {
+  border-top: 1px solid var(--qf-panel-border);
+  padding-top: 12px;
+}
+
+.qf-add-heading {
+  margin: 0 0 8px 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--qf-positive);
+  cursor: pointer;
+  user-select: none;
+}
+
+.qf-add-heading:hover {
+  text-decoration: underline;
+}
+
+.qf-form-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.qf-form-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.qf-label {
+  font-size: 13px;
+  color: var(--qf-text-muted);
+  min-width: 50px;
+  flex-shrink: 0;
+}
+
+.qf-select,
+.qf-input {
+  flex: 1;
+  padding: 5px 8px;
+  border: 1px solid var(--qf-input-border);
+  border-radius: 3px;
+  background: var(--qf-input-bg);
+  color: var(--qf-text);
+  font-size: 13px;
+}
+
+.qf-select:focus,
+.qf-input:focus {
+  outline: 2px solid var(--qf-positive);
+  outline-offset: -1px;
+}
+
+.qf-apply-existing {
+  margin-right: 4px;
+  vertical-align: middle;
+}
+
+.qf-match-count {
+  font-size: 12px;
+  color: var(--qf-text-muted);
+  margin-left: 4px;
+}
+
+.qf-form-actions {
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+/* ── Preview / Dialog Overlay ── */
+
+.qf-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: var(--qf-overlay-bg);
+  z-index: 1100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: qf-fade-in 0.15s ease;
+}
+
+@keyframes qf-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.qf-dialog {
+  background: var(--qf-panel-bg);
+  border-radius: 6px;
+  padding: 20px;
+  width: 500px;
+  max-width: 90vw;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 4px 16px var(--qf-panel-shadow);
+}
+
+.qf-dialog h3 {
+  margin: 0 0 12px 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--qf-text);
+}
+
+.qf-preview-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 50vh;
+  overflow-y: auto;
+  border: 1px solid var(--qf-panel-border);
+  border-radius: 3px;
+  margin-bottom: 12px;
+}
+
+.qf-preview-list li {
+  padding: 6px 10px;
+  font-size: 13px;
+  color: var(--qf-text);
+  border-bottom: 1px solid var(--qf-panel-border);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.qf-preview-list li:last-child {
+  border-bottom: none;
+}
+
+.qf-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+/* ── Onboarding Banner ── */
+
+.qf-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 16px;
+  background: var(--qf-positive-bg);
+  border: 1px solid var(--qf-positive);
+  border-radius: 4px;
+  margin: 8px;
+  font-size: 13px;
+  color: var(--qf-text);
+}
+
+.qf-banner-dismiss {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--qf-text-muted);
+  font-size: 16px;
+  cursor: pointer;
+  border-radius: 3px;
+  flex-shrink: 0;
+  margin-left: 8px;
+}
+
+.qf-banner-dismiss:hover {
+  background: var(--qf-hover-bg);
+}
+
+/* ── Fallback Notifications ── */
+
+.qf-notif {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 8px 16px;
+  border-radius: 4px;
+  font-size: 13px;
+  z-index: 1200;
+  pointer-events: none;
+  animation: qf-fade-in 0.15s ease;
+}
+
+.qf-notif-ok {
+  background: var(--qf-positive);
+  color: #fff;
+}
+
+.qf-notif-error {
+  background: var(--qf-negative);
+  color: #fff;
+}
+
+/* ── Mobile ── */
+
+@media (max-width: 768px) {
+  .qf-panel {
+    width: 100vw;
+    border-left: none;
+  }
+
+  .qf-dialog {
+    width: 95vw;
+    max-height: 90vh;
+  }
+
+  .qf-rule {
+    flex-wrap: wrap;
+  }
+
+  .qf-rule-actions {
+    width: 100%;
+    justify-content: flex-end;
+    padding-top: 4px;
+  }
+}

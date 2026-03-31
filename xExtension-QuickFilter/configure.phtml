@@ -1,0 +1,11 @@
+<form action="<?= _url('extension', 'configure', 'e', urlencode($this->extension->getName())) ?>"
+      method="post">
+    <input type="hidden" name="_csrf" value="<?= FreshRSS_Auth::csrfToken() ?>">
+    <div class="form-group">
+        <p>QuickFilter adds inline filter controls to your article view. Star or auto-read articles by author, tag, or keyword.</p>
+        <p>Filter icons appear next to author names and tags. Use the gear icon in the nav bar to open the filter manager.</p>
+    </div>
+    <div class="form-group form-actions">
+        <button type="submit" class="btn btn-important">Save</button>
+    </div>
+</form>
