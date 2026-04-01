@@ -86,7 +86,7 @@ class QuickFilterService {
      *
      * @return array{filters: array} Updated filter list
      */
-    public static function removeFilter(int $feedId, string $searchString, string $action): array {
+    public static function removeFilter(int $feedId, string $type, string $value, string $action): array {
         self::validateAction($action);
 
         $feed = self::loadFeed($feedId);
@@ -94,27 +94,27 @@ class QuickFilterService {
             throw new InvalidArgumentException('Feed not found');
         }
 
+        // Reconstruct the search string server-side to avoid quote
+        // sanitization issues in POST parameter transmission.
+        // For 'raw' filters we use the value directly as the search string.
+        if ($type === 'raw') {
+            $targetSearch = $value;
+        } else {
+            $targetSearch = self::buildFilterString($type, $value);
+        }
+
+        // Normalize via BooleanSearch so we match regardless of quoting style
+        $targetNorm = (new FreshRSS_BooleanSearch($targetSearch))->__toString();
+
         $existing = self::getFilterStrings($feed, $action);
-        $countBefore = count($existing);
-        $updated = array_values(array_filter($existing, function ($s) use ($searchString) {
-            return $s !== $searchString;
+        $updated = array_values(array_filter($existing, function ($s) use ($targetNorm) {
+            return (new FreshRSS_BooleanSearch($s))->__toString() !== $targetNorm;
         }));
-        $countAfter = count($updated);
 
         $feed->_filtersAction($action, $updated);
         self::saveFeed($feed);
 
-        $result = self::getFilters($feedId);
-        $result['_debug'] = [
-            'receivedSearch' => $searchString,
-            'receivedAction' => $action,
-            'existingStrings' => $existing,
-            'countBefore' => $countBefore,
-            'countAfter' => $countAfter,
-            'updated' => $updated,
-            'filtersAfterSave' => count($result['filters']),
-        ];
-        return $result;
+        return self::getFilters($feedId);
     }
 
     /**

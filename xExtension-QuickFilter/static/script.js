@@ -254,7 +254,8 @@
 
       serializedApiCall('remove', {
         feedId: feedId,
-        search: existing.search,
+        type: type,
+        value: value,
         action: action,
       }).then(function (data) {
         if (data.filters) updateFiltersFromServer(data.filters);
@@ -285,7 +286,8 @@
       if (existing && existing.action !== action) {
         chain = serializedApiCall('remove', {
           feedId: feedId,
-          search: existing.search,
+          type: type,
+          value: value,
           action: existing.action,
         });
       }
@@ -518,7 +520,8 @@
           if (!confirm('Remove filter: ' + f.type + ' "' + f.value + '"?')) return;
           serializedApiCall('remove', {
             feedId: feedId,
-            search: f.search,
+            type: f.type,
+            value: f.value,
             action: f.action,
           }).then(function (data) {
             if (data.filters) {

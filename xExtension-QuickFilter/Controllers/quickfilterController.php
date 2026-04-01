@@ -56,7 +56,7 @@ final class FreshExtension_quickfilter_Controller extends Minz_ActionController 
     /**
      * POST ?c=quickfilter&a=remove
      * Remove a filter from a feed.
-     * Params: feedId, search (the filter string), action (read|star)
+     * Params: feedId, type (author|tag|keyword), value, action (read|star)
      */
     public function removeAction(): void {
         if (!Minz_Request::isPost()) {
@@ -64,20 +64,17 @@ final class FreshExtension_quickfilter_Controller extends Minz_ActionController 
         }
 
         $feedId = Minz_Request::paramInt('feedId');
-        $search = Minz_Request::paramString('search');
+        $type = Minz_Request::paramString('type');
+        $value = Minz_Request::paramString('value');
         $action = Minz_Request::paramString('action');
 
-        if ($feedId <= 0 || !$search || !$action) {
-            $this->sendJson(['error' => 'Missing required parameters: feedId, search, action'], 400);
+        if ($feedId <= 0 || !$type || !$value || !$action) {
+            $this->sendJson(['error' => 'Missing required parameters: feedId, type, value, action'], 400);
         }
 
         try {
-            $result = QuickFilterService::removeFilter($feedId, $search, $action);
-            $this->sendJson([
-                'success' => true,
-                'filters' => $result['filters'],
-                '_debug' => $result['_debug'] ?? null,
-            ]);
+            $result = QuickFilterService::removeFilter($feedId, $type, $value, $action);
+            $this->sendJson(['success' => true, 'filters' => $result['filters']]);
         } catch (InvalidArgumentException $e) {
             $this->sendJson(['error' => $e->getMessage()], 400);
         }

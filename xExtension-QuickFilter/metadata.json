@@ -2,7 +2,7 @@
     "name": "QuickFilter",
     "author": "featurecreep-cron",
     "description": "Build filters from article context — star or hide articles by author, tag, or keyword",
-    "version": "0.1.1",
+    "version": "0.1.2",
     "entrypoint": "QuickFilter",
     "type": "user"
 }
