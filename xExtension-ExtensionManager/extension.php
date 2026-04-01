@@ -367,12 +367,32 @@ class ExtensionManagerExtension extends Minz_Extension {
     }
 
     private static function recursiveCopy($src, $dst) {
-        @mkdir($dst, 0755, true);
-        foreach (scandir($src) as $entry) {
+        if (!is_dir($dst)) {
+            if (!mkdir($dst, 0755, true) && !is_dir($dst)) {
+                error_log('ExtensionManager: mkdir failed for ' . $dst);
+                return;
+            }
+        }
+        $entries = scandir($src);
+        if ($entries === false) {
+            error_log('ExtensionManager: scandir failed for ' . $src);
+            return;
+        }
+        foreach ($entries as $entry) {
             if ($entry === '.' || $entry === '..') continue;
             $s = $src . '/' . $entry;
             $d = $dst . '/' . $entry;
-            is_dir($s) ? self::recursiveCopy($s, $d) : copy($s, $d);
+            if (is_dir($s)) {
+                self::recursiveCopy($s, $d);
+            } else {
+                $dir = dirname($d);
+                if (!is_dir($dir)) {
+                    mkdir($dir, 0755, true);
+                }
+                if (!copy($s, $d)) {
+                    error_log('ExtensionManager: copy failed ' . $s . ' -> ' . $d);
+                }
+            }
         }
     }
 }
