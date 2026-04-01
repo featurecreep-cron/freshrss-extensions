@@ -45,6 +45,18 @@
   gap: 2px;
   margin-left: 4px;
   vertical-align: middle;
+  /* Prevent controls from being part of link text selection/copy */
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* Inside title links: make controls not affect the link's text content visually */
+a .qf-controls {
+  font-size: 0;
+}
+
+a .qf-controls .qf-btn {
+  font-size: 14px;
 }
 
 .qf-hover-only {

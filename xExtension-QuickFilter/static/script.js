@@ -121,19 +121,7 @@
     authorEls.forEach(function (el) {
       var authorName = extractAuthorName(el);
       if (!authorName) return;
-
-      // If the .author is inside a link (title row), place controls
-      // as a sibling in the parent <li>, not inside the <a>
-      var parentLink = el.closest('a');
-      if (parentLink) {
-        var li = parentLink.closest('li');
-        if (li && !li.querySelector('.qf-controls')) {
-          addAuthorControlsToContainer(li, authorName, parentLink);
-        }
-      } else {
-        // Subtitle/expanded view — append directly
-        wrapAuthorWithControls(el, authorName);
-      }
+      wrapAuthorWithControls(el, authorName);
     });
 
     // Tag controls (only if tags are displayed)
@@ -164,25 +152,6 @@
     var text = el.textContent.trim();
     text = text.replace(/^By:\s*/i, '');
     return text || '';
-  }
-
-  /**
-   * Place controls inside a container (li) after a reference element (the link),
-   * for title-row authors where we can't nest buttons inside <a>.
-   */
-  function addAuthorControlsToContainer(container, authorName, afterEl) {
-    var key = authorName.toLowerCase();
-    var existing = filterMap.authors[key];
-
-    var controls = createFilterControls(authorName, 'author', existing);
-    // Insert after the link, before the date span
-    afterEl.insertAdjacentElement('afterend', controls);
-
-    // Color the author span inside the link
-    var authorSpan = afterEl.querySelector('.author');
-    if (authorSpan && existing) {
-      authorSpan.classList.add(existing.action === 'star' ? 'qf-active-positive' : 'qf-active-negative');
-    }
   }
 
   function wrapAuthorWithControls(el, authorName) {
@@ -233,7 +202,7 @@
     hideBtn.type = 'button';
     hideBtn.className = 'qf-btn qf-hide';
     hideBtn.title = 'Auto-read articles with ' + type + ' "' + value + '"';
-    hideBtn.innerHTML = '&#10005;'; // ✕
+    hideBtn.innerHTML = '&#10003;'; // ✕
     hideBtn.setAttribute('aria-label', 'Auto-read articles with ' + type + ' ' + value);
 
     if (existing) {
@@ -354,7 +323,7 @@
   }
 
   function updateVisualClasses(type, key) {
-    var selector = type === 'author' ? '.subtitle .author, .content .author' : '.link-tag';
+    var selector = type === 'author' ? '.author' : '.link-tag';
     document.querySelectorAll(selector).forEach(function (el) {
       var text = type === 'author' ? extractAuthorName(el) : el.textContent.trim().replace(/^#/, '');
       if (text.toLowerCase() !== key) return;
@@ -433,7 +402,7 @@
     btn.type = 'button';
     btn.className = 'qf-manager-btn';
     btn.title = 'Manage filters';
-    btn.innerHTML = '&#9881;'; // ⚙
+    btn.innerHTML = '&#9661;'; // ▽ filter
     btn.setAttribute('aria-label', 'Open filter manager');
     btn.addEventListener('click', function () {
       if (feedId <= 0) {
@@ -520,7 +489,7 @@
 
         var icon = document.createElement('span');
         icon.className = 'qf-rule-icon';
-        icon.innerHTML = f.action === 'star' ? '&#9733;' : '&#10005;';
+        icon.innerHTML = f.action === 'star' ? '&#9733;' : '&#10003;';
         icon.classList.add(f.action === 'star' ? 'qf-positive' : 'qf-negative');
         li.appendChild(icon);
 
@@ -878,7 +847,7 @@
 
     var banner = document.createElement('div');
     banner.className = 'qf-banner';
-    banner.innerHTML = '<span>QuickFilter: use the &#9734;/&#10005; icons next to authors and tags to create filters.</span>';
+    banner.innerHTML = '<span>QuickFilter: use the &#9734;/&#10003; icons next to authors and tags to create filters.</span>';
 
     var dismiss = document.createElement('button');
     dismiss.type = 'button';
