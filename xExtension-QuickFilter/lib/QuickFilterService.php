@@ -9,7 +9,8 @@
  */
 class QuickFilterService {
 
-    private const AUTHOR_DELIMITER = ' · ';
+    /** FreshRSS uses semicolons to delimit multiple authors */
+    private const AUTHOR_DELIMITERS = [';', ' · '];
 
     /**
      * Get all filter rules for a feed, structured for the client.
@@ -231,8 +232,18 @@ class QuickFilterService {
             if ($raw === '') {
                 continue;
             }
-            // Authors may be delimited by " · "
-            $parts = explode(self::AUTHOR_DELIMITER, $raw);
+            // Authors may be delimited by ";" or " · "
+            // Split on all known delimiters
+            $parts = [$raw];
+            foreach (self::AUTHOR_DELIMITERS as $delim) {
+                $newParts = [];
+                foreach ($parts as $p) {
+                    foreach (explode($delim, $p) as $sub) {
+                        $newParts[] = $sub;
+                    }
+                }
+                $parts = $newParts;
+            }
             foreach ($parts as $part) {
                 $part = trim($part);
                 if ($part !== '') {
@@ -322,12 +333,9 @@ class QuickFilterService {
 
         switch ($type) {
             case 'author':
-                // Quote if contains spaces or special chars
-                if (preg_match('/[\s\'\"]/', $value)) {
-                    $escaped = str_replace("'", "\\'", $value);
-                    return "author:'" . $escaped . "'";
-                }
-                return 'author:' . $value;
+                // Always double-quote author values (FreshRSS convention)
+                $escaped = str_replace('"', '\\"', $value);
+                return 'author:"' . $escaped . '"';
 
             case 'tag':
                 // Tags use # prefix, + for spaces
@@ -341,8 +349,9 @@ class QuickFilterService {
                 if (strlen($value) > 200) {
                     throw new InvalidArgumentException('Keyword must be at most 200 characters');
                 }
-                $escaped = str_replace("'", "\\'", $value);
-                return "intitle:'" . $escaped . "'";
+                // Double-quote keywords (FreshRSS convention)
+                $escaped = str_replace('"', '\\"', $value);
+                return 'intitle:"' . $escaped . '"';
 
             default:
                 throw new InvalidArgumentException('Invalid filter type: ' . $type);
@@ -356,7 +365,10 @@ class QuickFilterService {
     public static function parseFilterString(string $search): ?array {
         $search = trim($search);
 
-        // author:'Name' or author:Name
+        // author:"Name" or author:'Name' or author:Name
+        if (preg_match('/^author:"(.+)"$/', $search, $m)) {
+            return ['type' => 'author', 'value' => str_replace('\\"', '"', $m[1])];
+        }
         if (preg_match("/^author:'(.+)'$/", $search, $m)) {
             return ['type' => 'author', 'value' => str_replace("\\'", "'", $m[1])];
         }
@@ -369,7 +381,10 @@ class QuickFilterService {
             return ['type' => 'tag', 'value' => str_replace('+', ' ', $m[1])];
         }
 
-        // intitle:'keyword' or intitle:keyword
+        // intitle:"keyword" or intitle:'keyword' or intitle:keyword
+        if (preg_match('/^intitle:"(.+)"$/', $search, $m)) {
+            return ['type' => 'keyword', 'value' => str_replace('\\"', '"', $m[1])];
+        }
         if (preg_match("/^intitle:'(.+)'$/", $search, $m)) {
             return ['type' => 'keyword', 'value' => str_replace("\\'", "'", $m[1])];
         }

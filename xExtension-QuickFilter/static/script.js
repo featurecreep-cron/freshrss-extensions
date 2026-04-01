@@ -96,8 +96,8 @@
   function serializedApiCall(action, params) {
     pendingRequest = pendingRequest.then(function () {
       return apiCall(action, params);
-    }).catch(function () {
-      // Don't break the chain on error
+    }, function () {
+      // Previous call failed — still execute this one (don't break chain)
       return apiCall(action, params);
     });
     return pendingRequest;
@@ -116,19 +116,24 @@
     if (article.dataset.qfProcessed) return;
     article.dataset.qfProcessed = '1';
 
-    // Author controls
+    // Author controls — attach to all .author elements
     var authorEls = article.querySelectorAll('.author');
     authorEls.forEach(function (el) {
-      var authorText = el.textContent.trim();
-      if (!authorText) return;
+      var authorName = extractAuthorName(el);
+      if (!authorName) return;
 
-      // Authors may be delimited
-      var names = authorText.split(' · ');
-      if (names.length === 1) {
-        wrapAuthorWithControls(el, authorText);
+      // If the .author is inside a link (title row), place controls
+      // as a sibling in the parent <li>, not inside the <a>
+      var parentLink = el.closest('a');
+      if (parentLink) {
+        var li = parentLink.closest('li');
+        if (li && !li.querySelector('.qf-controls')) {
+          addAuthorControlsToContainer(li, authorName, parentLink);
+        }
+      } else {
+        // Subtitle/expanded view — append directly
+        wrapAuthorWithControls(el, authorName);
       }
-      // For multi-author, we'd need to restructure the DOM — skip for now
-      // and handle single-author case which covers most feeds
     });
 
     // Tag controls (only if tags are displayed)
@@ -143,6 +148,41 @@
 
     // Title keyword highlighting
     highlightTitleKeywords(article);
+  }
+
+  /**
+   * Extract the actual author name from an .author element.
+   * Handles "By: Author Name" prefix and link-wrapped names.
+   */
+  function extractAuthorName(el) {
+    // If the author element contains a link, use the link text
+    var link = el.querySelector('a');
+    if (link) {
+      return link.textContent.trim();
+    }
+    // Otherwise use the element's own text, stripping "By:" prefix
+    var text = el.textContent.trim();
+    text = text.replace(/^By:\s*/i, '');
+    return text || '';
+  }
+
+  /**
+   * Place controls inside a container (li) after a reference element (the link),
+   * for title-row authors where we can't nest buttons inside <a>.
+   */
+  function addAuthorControlsToContainer(container, authorName, afterEl) {
+    var key = authorName.toLowerCase();
+    var existing = filterMap.authors[key];
+
+    var controls = createFilterControls(authorName, 'author', existing);
+    // Insert after the link, before the date span
+    afterEl.insertAdjacentElement('afterend', controls);
+
+    // Color the author span inside the link
+    var authorSpan = afterEl.querySelector('.author');
+    if (authorSpan && existing) {
+      authorSpan.classList.add(existing.action === 'star' ? 'qf-active-positive' : 'qf-active-negative');
+    }
   }
 
   function wrapAuthorWithControls(el, authorName) {
@@ -228,6 +268,10 @@
       return;
     }
 
+    // Disable buttons during operation to prevent duplicate clicks
+    activeBtn.disabled = true;
+    otherBtn.disabled = true;
+
     var key = value.toLowerCase();
     var mapObj = type === 'author' ? filterMap.authors :
                  type === 'tag' ? filterMap.tags : filterMap.keywords;
@@ -252,6 +296,9 @@
         activeBtn.classList.add('qf-active');
         if (action === 'star') activeBtn.innerHTML = '&#9733;';
         showNotification(err.error || 'Failed to remove filter', true);
+      }).then(function () {
+        activeBtn.disabled = false;
+        otherBtn.disabled = false;
       });
     } else {
       // Remove opposite filter if exists
@@ -289,6 +336,9 @@
         activeBtn.classList.remove('qf-active');
         if (action === 'star') activeBtn.innerHTML = '&#9734;';
         showNotification(err.error || 'Failed to add filter', true);
+      }).then(function () {
+        activeBtn.disabled = false;
+        otherBtn.disabled = false;
       });
 
       mapObj[key] = { action: action, search: '' }; // search filled on server response
@@ -304,10 +354,9 @@
   }
 
   function updateVisualClasses(type, key) {
-    var selector = type === 'author' ? '.author' : '.link-tag';
+    var selector = type === 'author' ? '.subtitle .author, .content .author' : '.link-tag';
     document.querySelectorAll(selector).forEach(function (el) {
-      var text = el.textContent.trim();
-      if (type === 'tag') text = text.replace(/^#/, '');
+      var text = type === 'author' ? extractAuthorName(el) : el.textContent.trim().replace(/^#/, '');
       if (text.toLowerCase() !== key) return;
 
       el.classList.remove('qf-active-positive', 'qf-active-negative');
@@ -384,7 +433,7 @@
     btn.type = 'button';
     btn.className = 'qf-manager-btn';
     btn.title = 'Manage filters';
-    btn.innerHTML = '&#9881;'; // ⚙ (filter icon)
+    btn.innerHTML = '&#9881;'; // ⚙
     btn.setAttribute('aria-label', 'Open filter manager');
     btn.addEventListener('click', function () {
       if (feedId <= 0) {
