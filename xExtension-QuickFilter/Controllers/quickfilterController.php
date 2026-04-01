@@ -73,7 +73,11 @@ final class FreshExtension_quickfilter_Controller extends Minz_ActionController 
 
         try {
             $result = QuickFilterService::removeFilter($feedId, $search, $action);
-            $this->sendJson(['success' => true, 'filters' => $result['filters']]);
+            $this->sendJson([
+                'success' => true,
+                'filters' => $result['filters'],
+                '_debug' => $result['_debug'] ?? null,
+            ]);
         } catch (InvalidArgumentException $e) {
             $this->sendJson(['error' => $e->getMessage()], 400);
         }

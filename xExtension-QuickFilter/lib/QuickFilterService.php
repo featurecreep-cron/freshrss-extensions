@@ -95,14 +95,26 @@ class QuickFilterService {
         }
 
         $existing = self::getFilterStrings($feed, $action);
+        $countBefore = count($existing);
         $updated = array_values(array_filter($existing, function ($s) use ($searchString) {
             return $s !== $searchString;
         }));
+        $countAfter = count($updated);
 
         $feed->_filtersAction($action, $updated);
         self::saveFeed($feed);
 
-        return self::getFilters($feedId);
+        $result = self::getFilters($feedId);
+        $result['_debug'] = [
+            'receivedSearch' => $searchString,
+            'receivedAction' => $action,
+            'existingStrings' => $existing,
+            'countBefore' => $countBefore,
+            'countAfter' => $countAfter,
+            'updated' => $updated,
+            'filtersAfterSave' => count($result['filters']),
+        ];
+        return $result;
     }
 
     /**
