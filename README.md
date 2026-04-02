@@ -1,7 +1,6 @@
 # FreshRSS Extensions
 
 [![License: MIT](https://img.shields.io/github/license/featurecreep-cron/freshrss-extensions)](https://github.com/featurecreep-cron/freshrss-extensions/blob/main/LICENSE)
-[![Release](https://img.shields.io/github/v/release/featurecreep-cron/freshrss-extensions)](https://github.com/featurecreep-cron/freshrss-extensions/releases)
 
 Custom extensions for [FreshRSS](https://freshrss.org) that fix everyday annoyances — scroll jumps, missing context menus, manual page refreshes, and no way to install extensions without SSH.
 
