@@ -116,3 +116,42 @@
     0%, 80% { opacity: 1; }
     100% { opacity: 0; }
 }
+
+/* Manual update dialog */
+.ext-mgr-overlay {
+    position: fixed; inset: 0; z-index: 100000;
+    background: rgba(0,0,0,.5);
+    display: flex; align-items: center; justify-content: center;
+}
+.ext-mgr-dialog {
+    background: var(--frss-background, #fff);
+    color: var(--frss-color, #333);
+    border-radius: 8px;
+    padding: 20px 24px;
+    max-width: 520px;
+    width: 90%;
+    box-shadow: 0 8px 32px rgba(0,0,0,.3);
+}
+.ext-mgr-dialog h3 {
+    margin: 0 0 12px;
+    font-size: 1.1em;
+}
+.ext-mgr-dialog p {
+    margin: 0 0 12px;
+    font-size: 0.9em;
+    opacity: 0.8;
+}
+.ext-mgr-dialog pre {
+    background: rgba(0,0,0,.06);
+    padding: 12px;
+    border-radius: 4px;
+    font-size: 0.82em;
+    overflow-x: auto;
+    white-space: pre-wrap;
+    word-break: break-all;
+    margin: 0 0 12px;
+}
+.ext-mgr-dialog-note {
+    font-size: 0.82em !important;
+    font-style: italic;
+}

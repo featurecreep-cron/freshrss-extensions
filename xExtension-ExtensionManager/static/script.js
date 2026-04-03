@@ -459,15 +459,69 @@
         } else {
           btn.textContent = label;
           btn.disabled = false;
-          showNotification(data.error || 'Failed', true);
+          showManualUpdateInstructions(extName, extUrl, extDir);
         }
       }).catch(function (err) {
         btn.textContent = label;
         btn.disabled = false;
-        showNotification('Error: ' + err.message, true);
+        showManualUpdateInstructions(extName, extUrl, extDir);
       });
     });
     return btn;
+  }
+
+  function showManualUpdateInstructions(extName, extUrl, extDir) {
+    var dirName = extDir || ('xExtension-' + extName);
+    var repoUrl = extUrl || '';
+
+    var overlay = document.createElement('div');
+    overlay.className = 'ext-mgr-overlay';
+
+    var dialog = document.createElement('div');
+    dialog.className = 'ext-mgr-dialog';
+    dialog.setAttribute('role', 'dialog');
+
+    var title = document.createElement('h3');
+    title.textContent = 'Update ' + extName + ' manually';
+    dialog.appendChild(title);
+
+    var intro = document.createElement('p');
+    intro.textContent = 'Automatic update failed. Update via the command line instead:';
+    dialog.appendChild(intro);
+
+    var pre = document.createElement('pre');
+    var extPath = '/path/to/freshrss/extensions/' + dirName;
+    var lines = [];
+    if (repoUrl) {
+      lines.push('# If installed via git:');
+      lines.push('cd ' + extPath);
+      lines.push('git pull origin main');
+      lines.push('');
+      lines.push('# Or replace manually:');
+      lines.push('rm -rf ' + extPath);
+      lines.push('cd /path/to/freshrss/extensions/');
+      lines.push('git clone ' + repoUrl + '.git ' + dirName);
+    } else {
+      lines.push('cd ' + extPath);
+      lines.push('git pull origin main');
+    }
+    pre.textContent = lines.join('\n');
+    dialog.appendChild(pre);
+
+    var note = document.createElement('p');
+    note.className = 'ext-mgr-dialog-note';
+    note.textContent = 'Refresh FreshRSS in your browser after updating.';
+    dialog.appendChild(note);
+
+    var closeBtn = document.createElement('button');
+    closeBtn.type = 'button';
+    closeBtn.className = 'ext-mgr-btn';
+    closeBtn.textContent = 'Close';
+    closeBtn.addEventListener('click', function () { overlay.remove(); });
+    dialog.appendChild(closeBtn);
+
+    overlay.appendChild(dialog);
+    document.body.appendChild(overlay);
   }
 
   if (document.readyState === 'loading') {
