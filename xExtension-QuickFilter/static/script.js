@@ -506,7 +506,7 @@
         var runBtn = document.createElement('button');
         runBtn.type = 'button';
         runBtn.className = 'qf-btn-small';
-        runBtn.textContent = 'Run on existing';
+        runBtn.textContent = 'Apply to past articles';
         runBtn.addEventListener('click', function () {
           openPreview(f.type, f.value, f.action);
         });

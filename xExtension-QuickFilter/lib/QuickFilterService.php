@@ -150,12 +150,12 @@ class QuickFilterService {
 
         // Use FreshRSS's built-in search to find matching entries
         $entries = $entryDAO->listWhere(
-            'f',
-            $feedId,
-            FreshRSS_Entry::STATE_ALL,
-            $search,
-            $batchSize,
-            $offset
+            type: 'f',
+            id: $feedId,
+            state: FreshRSS_Entry::STATE_ALL,
+            filters: $search,
+            limit: $batchSize,
+            offset: $offset
         );
 
         $applied = 0;
@@ -194,12 +194,11 @@ class QuickFilterService {
         $entryDAO = FreshRSS_Factory::createEntryDao();
 
         $entries = $entryDAO->listWhere(
-            'f',
-            $feedId,
-            FreshRSS_Entry::STATE_ALL,
-            $search,
-            $limit,
-            0
+            type: 'f',
+            id: $feedId,
+            state: FreshRSS_Entry::STATE_ALL,
+            filters: $search,
+            limit: $limit,
         );
 
         $articles = [];
@@ -230,12 +229,10 @@ class QuickFilterService {
     public static function getDistinctAuthors(int $feedId, int $entryLimit = 500): array {
         $entryDAO = FreshRSS_Factory::createEntryDao();
         $entries = $entryDAO->listWhere(
-            'f',
-            $feedId,
-            FreshRSS_Entry::STATE_ALL,
-            null,
-            $entryLimit,
-            0
+            type: 'f',
+            id: $feedId,
+            state: FreshRSS_Entry::STATE_ALL,
+            limit: $entryLimit,
         );
 
         $authors = [];
@@ -277,12 +274,10 @@ class QuickFilterService {
     public static function getDistinctTags(int $feedId, int $entryLimit = 500): array {
         $entryDAO = FreshRSS_Factory::createEntryDao();
         $entries = $entryDAO->listWhere(
-            'f',
-            $feedId,
-            FreshRSS_Entry::STATE_ALL,
-            null,
-            $entryLimit,
-            0
+            type: 'f',
+            id: $feedId,
+            state: FreshRSS_Entry::STATE_ALL,
+            limit: $entryLimit,
         );
 
         $tags = [];
