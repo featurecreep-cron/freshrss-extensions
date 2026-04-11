@@ -1,16 +1,12 @@
 #!/bin/sh
 # Extension Manager — queue processor
-# Processes queued extension installs, then hands off to the real entrypoint.
+# Processes queued installs and removals from the UI when the extensions
+# directory was read-only. Runs as root via docker exec.
 #
-# Usage in docker-compose.yml (official FreshRSS image):
-#   entrypoint: ["/var/www/FreshRSS/extensions/xExtension-ExtensionManager/install-queued.sh"]
-#
-# Usage in docker-compose.yml (linuxserver/freshrss):
-#   entrypoint: ["/config/www/freshrss/extensions/xExtension-ExtensionManager/install-queued.sh"]
+# Usage:
+#   docker exec freshrss sh /var/www/FreshRSS/extensions/xExtension-ExtensionManager/install-queued.sh
 
-echo "[ExtMgr] Script starting" >&2
-
-# --- Process queued installs ---
+set -e
 
 # Auto-detect FreshRSS data path
 if [ -n "$EXTMGR_DATA_PATH" ]; then
@@ -33,9 +29,20 @@ fi
 QUEUE_DIR="${DATA_PATH:-}/extmgr/queue"
 MANIFEST="${DATA_PATH:-}/extmgr/manifest.json"
 
-if [ -d "$QUEUE_DIR" ] && [ -f "$MANIFEST" ] && [ -n "$EXT_PATH" ]; then
-    echo "[ExtMgr] Processing queued extension installs..."
+if [ ! -f "$MANIFEST" ]; then
+    echo "[ExtMgr] No queued operations"
+    exit 0
+fi
 
+if [ -z "$EXT_PATH" ]; then
+    echo "[ExtMgr] Cannot detect extensions path"
+    exit 1
+fi
+
+echo "[ExtMgr] Processing queued operations..."
+
+# Process installs from queue directory
+if [ -d "$QUEUE_DIR" ]; then
     for ext_dir in "$QUEUE_DIR"/xExtension-*; do
         [ -d "$ext_dir" ] || continue
         dir_name="$(basename "$ext_dir")"
@@ -74,37 +81,42 @@ if [ -d "$QUEUE_DIR" ] && [ -f "$MANIFEST" ] && [ -n "$EXT_PATH" ]; then
             fi
         fi
     done
-
-    rm -rf "$QUEUE_DIR"
-    rm -f "$MANIFEST"
-    echo "[ExtMgr] Queue processing complete"
 fi
 
-# Mark that the entrypoint wrapper has run at least once
-if [ -n "$DATA_PATH" ] && [ -d "$DATA_PATH" ]; then
-    mkdir -p "$DATA_PATH/extmgr"
-    touch "$DATA_PATH/extmgr/.entrypoint-configured"
+# Process removals from manifest (entries with "action":"remove")
+# Uses python3 (available in FreshRSS image) to parse JSON
+if command -v python3 >/dev/null 2>&1; then
+    removals=$(python3 -c "
+import json, sys
+m = json.load(open('$MANIFEST'))
+for k, v in m.items():
+    if v.get('action') == 'remove':
+        print(k)
+" 2>/dev/null) || true
+
+    for dir_name in $removals; do
+        dir_name="$(basename "$dir_name")"
+        target="$EXT_PATH/$dir_name"
+
+        if [ "$dir_name" = "xExtension-ExtensionManager" ]; then
+            echo "[ExtMgr] Skipping $dir_name — cannot remove Extension Manager"
+            continue
+        fi
+
+        if [ -d "$target" ]; then
+            echo "[ExtMgr] Removing $dir_name"
+            rm -rf "$target"
+            if [ ! -d "$target" ]; then
+                echo "[ExtMgr] $dir_name — removed"
+            else
+                echo "[ExtMgr] $dir_name — FAILED to remove"
+            fi
+        else
+            echo "[ExtMgr] $dir_name — not found, skipping"
+        fi
+    done
 fi
 
-# --- Hand off to the real entrypoint + CMD ---
-
-# Docker does not preserve the Dockerfile CMD when entrypoint is overridden.
-# We run the entrypoint for its setup, then start the CMD ourselves.
-
-if [ -f "/var/www/FreshRSS/Docker/entrypoint.sh" ]; then
-    echo "[ExtMgr] Running entrypoint setup..." >&2
-    /var/www/FreshRSS/Docker/entrypoint.sh true
-    SETUP_EXIT=$?
-    echo "[ExtMgr] Entrypoint setup exited: $SETUP_EXIT" >&2
-
-    echo "[ExtMgr] Starting CMD..." >&2
-    . /etc/apache2/envvars
-    echo "[ExtMgr] Envvars loaded, starting apache2" >&2
-    ([ -z "$CRON_MIN" ] || cron)
-    exec apache2 -D FOREGROUND $([ -n "$OIDC_ENABLED" ] && [ "$OIDC_ENABLED" -ne 0 ] && echo "-D OIDC_ENABLED")
-elif [ -x "/init" ]; then
-    exec /init
-else
-    echo "[ExtMgr] Warning: could not find FreshRSS entrypoint"
-    exit 1
-fi
+rm -rf "$QUEUE_DIR"
+rm -f "$MANIFEST"
+echo "[ExtMgr] Queue processing complete — refresh FreshRSS in your browser"

@@ -38,7 +38,6 @@ class ExtensionManagerExtension extends Minz_Extension {
             'is_admin' => FreshRSS_Auth::hasAccess('admin'),
             'writable' => self::extensionsWritable(),
             'queued' => self::getQueuedInstalls(),
-            'entrypoint_configured' => file_exists(self::queueDir() . '/.entrypoint-configured'),
         ];
         return $vars;
     }
@@ -187,35 +186,92 @@ class ExtensionManagerExtension extends Minz_Extension {
     }
 
     /**
-     * Drain the queue by installing queued extensions directly (writable mode).
+     * Queue an extension for removal.
+     */
+    public static function queueRemove(string $dirName): string|true {
+        $dirName = basename($dirName);
+
+        if ($dirName === 'xExtension-ExtensionManager') {
+            return 'Cannot remove Extension Manager';
+        }
+
+        $extPath = dirname(dirname(__FILE__));
+        if (!is_dir($extPath . '/' . $dirName)) {
+            return 'Extension not found: ' . $dirName;
+        }
+
+        $queueDir = self::queueDir();
+        if (!is_dir($queueDir)) {
+            if (!mkdir($queueDir, 0755, true)) {
+                return 'Cannot create queue directory.';
+            }
+        }
+
+        $manifestFile = $queueDir . '/manifest.json';
+        $manifest = [];
+        if (file_exists($manifestFile)) {
+            $manifest = json_decode(file_get_contents($manifestFile), true) ?: [];
+        }
+        $manifest[$dirName] = [
+            'name' => $dirName,
+            'action' => 'remove',
+            'queued_at' => date('c'),
+        ];
+        file_put_contents($manifestFile, json_encode($manifest, JSON_PRETTY_PRINT));
+
+        return true;
+    }
+
+    /**
+     * Drain the queue by processing queued operations directly (writable mode).
      * Called when extensions dir is writable but a queue exists from a previous
      * read-only session.
      */
     private static function drainQueue(): void {
-        $queueDir = self::queueDir() . '/queue';
         $manifestFile = self::queueDir() . '/manifest.json';
-        if (!is_dir($queueDir) || !file_exists($manifestFile)) {
+        if (!file_exists($manifestFile)) {
             return;
         }
 
         $extPath = dirname(dirname(__FILE__));
-        $dirs = glob($queueDir . '/xExtension-*', GLOB_ONLYDIR);
-        foreach ($dirs as $srcDir) {
-            $dirName = basename($srcDir);
-            if ($dirName === 'xExtension-ExtensionManager') {
+        $manifest = json_decode(file_get_contents($manifestFile), true) ?: [];
+
+        // Process installs from queue directory
+        $queueDir = self::queueDir() . '/queue';
+        if (is_dir($queueDir)) {
+            $dirs = glob($queueDir . '/xExtension-*', GLOB_ONLYDIR);
+            foreach ($dirs as $srcDir) {
+                $dirName = basename($srcDir);
+                if ($dirName === 'xExtension-ExtensionManager') {
+                    continue;
+                }
+                if (!file_exists($srcDir . '/metadata.json') || !file_exists($srcDir . '/extension.php')) {
+                    continue;
+                }
+                $target = $extPath . '/' . $dirName;
+                if (is_dir($target)) {
+                    self::recursiveDelete($target);
+                }
+                self::recursiveCopy($srcDir, $target);
+            }
+            self::recursiveDelete($queueDir);
+        }
+
+        // Process removals from manifest
+        foreach ($manifest as $dirName => $entry) {
+            if (($entry['action'] ?? '') !== 'remove') {
                 continue;
             }
-            if (!file_exists($srcDir . '/metadata.json') || !file_exists($srcDir . '/extension.php')) {
+            $dirName = basename($dirName);
+            if ($dirName === 'xExtension-ExtensionManager') {
                 continue;
             }
             $target = $extPath . '/' . $dirName;
             if (is_dir($target)) {
                 self::recursiveDelete($target);
             }
-            self::recursiveCopy($srcDir, $target);
         }
 
-        self::recursiveDelete($queueDir);
         @unlink($manifestFile);
     }
 

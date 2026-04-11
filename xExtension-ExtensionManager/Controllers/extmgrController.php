@@ -104,9 +104,18 @@ final class FreshExtension_extmgr_Controller extends Minz_ActionController {
             $this->sendJson(['error' => 'Missing dir parameter'], 400);
         }
 
-        $result = ExtensionManagerExtension::removeExtension($dir);
+        if (ExtensionManagerExtension::extensionsWritable()) {
+            $result = ExtensionManagerExtension::removeExtension($dir);
+            if ($result === true) {
+                $this->sendJson(['success' => true, 'message' => 'Extension removed']);
+            }
+            $this->sendJson(['error' => is_string($result) ? $result : 'Unknown error'], 500);
+        }
+
+        // Queue mode: stage removal for next queue processing
+        $result = ExtensionManagerExtension::queueRemove($dir);
         if ($result === true) {
-            $this->sendJson(['success' => true, 'message' => 'Extension removed']);
+            $this->sendJson(['success' => true, 'queued' => true, 'message' => 'Removal queued']);
         }
         $this->sendJson(['error' => is_string($result) ? $result : 'Unknown error'], 500);
     }

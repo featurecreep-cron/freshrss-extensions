@@ -6,7 +6,7 @@
   var isAdmin = false;
   var isWritable = false;
   var queued = {};
-  var entrypointConfigured = false;
+
 
   var _initRetries = 0;
   function init() {
@@ -23,7 +23,6 @@
     isAdmin = !!extConfig.configuration.is_admin;
     isWritable = !!extConfig.configuration.writable;
     queued = extConfig.configuration.queued || {};
-    entrypointConfigured = !!extConfig.configuration.entrypoint_configured;
 
     if (!isExtensionsPage()) return;
 
@@ -137,22 +136,14 @@
 
     var explanation = document.createElement('span');
     explanation.className = 'ext-mgr-queued-detail';
-
-    if (entrypointConfigured) {
-      explanation.textContent = 'Restart your container to install queued extensions.';
-    } else {
-      explanation.textContent = 'Extensions are queued because the extensions directory is read-only. One-time setup required. ';
-      banner.appendChild(explanation);
-
-      var link = document.createElement('a');
-      link.href = 'https://github.com/featurecreep-cron/freshrss-extensions/tree/main/xExtension-ExtensionManager#queue-mode';
-      link.textContent = 'Setup instructions';
-      link.target = '_blank';
-      banner.appendChild(link);
-      return appendBanner(banner, scroll);
-    }
-
+    explanation.textContent = 'Apply with: ';
     banner.appendChild(explanation);
+
+    var cmd = document.createElement('code');
+    cmd.textContent = 'docker exec freshrss sh /var/www/FreshRSS/extensions/xExtension-ExtensionManager/install-queued.sh';
+    cmd.style.cssText = 'font-size: 0.85em; user-select: all;';
+    banner.appendChild(cmd);
+
     appendBanner(banner, scroll);
   }
 
@@ -300,9 +291,18 @@
         btn.disabled = true;
         apiCall('remove', { dir: dirName }).then(function (data) {
           if (data.success) {
-            li.remove();
-            showNotification(extName + ' removed');
-            setTimeout(function () { window.location.reload(); }, 1500);
+            if (data.queued) {
+              btn.disabled = true;
+              showNotification(extName + ' removal queued — run install-queued.sh to apply');
+              queued[dirName] = { name: extName, action: 'remove' };
+              if (!document.querySelector('.ext-mgr-queued-banner')) {
+                showQueuedBanner(true);
+              }
+            } else {
+              li.remove();
+              showNotification(extName + ' removed');
+              setTimeout(function () { window.location.reload(); }, 1500);
+            }
           } else {
             showNotification(data.error || 'Failed to remove', true);
             btn.disabled = false;
@@ -508,14 +508,9 @@
       apiCall('install', params).then(function (data) {
         if (data.success) {
           if (data.queued) {
-            if (entrypointConfigured) {
-              btn.textContent = 'Queued — restart to apply';
-              showNotification(extName + ' queued — restart your container to install');
-            } else {
-              btn.textContent = 'Queued — setup required';
-              showNotification(extName + ' queued — one-time setup required, see banner above', true);
-            }
+            btn.textContent = 'Queued';
             btn.className = 'ext-mgr-btn ext-mgr-queued';
+            showNotification(extName + ' queued — see banner for apply command');
             // Update queued state and show banner if not already visible
             queued[extDir || extName] = { name: extName };
             if (!document.querySelector('.ext-mgr-queued-banner')) {
