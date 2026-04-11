@@ -171,4 +171,9 @@
     border: 1px solid #90caf9;
     margin-bottom: 16px;
     font-size: 0.9em;
+    line-height: 1.6;
+}
+.ext-mgr-queued-detail {
+    font-size: 0.9em;
+    opacity: 0.8;
 }

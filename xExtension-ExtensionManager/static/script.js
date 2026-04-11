@@ -118,7 +118,24 @@
     var names = Object.keys(queued).map(function (k) { return queued[k].name || k; });
     var banner = document.createElement('div');
     banner.className = 'ext-mgr-queued-banner';
-    banner.textContent = 'Queued for install on next restart: ' + names.join(', ');
+
+    var title = document.createElement('strong');
+    title.textContent = 'Extensions queued: ';
+    banner.appendChild(title);
+    banner.appendChild(document.createTextNode(names.join(', ')));
+    banner.appendChild(document.createElement('br'));
+
+    var explanation = document.createElement('span');
+    explanation.className = 'ext-mgr-queued-detail';
+    explanation.textContent = 'The extensions directory is read-only. Queued extensions are installed on container restart. ';
+    banner.appendChild(explanation);
+
+    var link = document.createElement('a');
+    link.href = 'https://github.com/featurecreep-cron/freshrss-extensions/tree/main/xExtension-ExtensionManager#install-modes';
+    link.textContent = 'Setup instructions';
+    link.target = '_blank';
+    banner.appendChild(link);
+
     var main = document.querySelector('.post') || document.querySelector('#content') || document.body;
     main.insertBefore(banner, main.firstChild);
   }
@@ -475,9 +492,9 @@
       apiCall('install', params).then(function (data) {
         if (data.success) {
           if (data.queued) {
-            btn.textContent = 'Queued';
+            btn.textContent = 'Queued — restart to apply';
             btn.className = 'ext-mgr-btn ext-mgr-queued';
-            showNotification(extName + ' queued — restart container to install');
+            showNotification(extName + ' queued — restart your container to install');
           } else {
             btn.textContent = '\u2713 Done';
             btn.className = 'ext-mgr-btn ext-mgr-done';
