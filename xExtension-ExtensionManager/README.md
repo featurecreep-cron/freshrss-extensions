@@ -23,17 +23,18 @@ FreshRSS keeps the extensions directory read-only at runtime. Extension Manager 
 
 #### Writable mode
 
-Bind-mount the extensions directory, then make it group-writable:
+Bind-mount the internal extensions directory to a host path, then make it group-writable. Copy the existing extensions out first so FreshRSS still has its built-in extensions:
+
+```bash
+docker cp freshrss:/var/www/FreshRSS/extensions ./freshrss-extensions
+chmod -R g+w ./freshrss-extensions
+```
 
 ```yaml
 services:
   freshrss:
     volumes:
-      - /path/to/extensions:/var/www/FreshRSS/extensions
-```
-
-```bash
-chmod -R g+w /path/to/extensions
+      - ./freshrss-extensions:/var/www/FreshRSS/extensions
 ```
 
 #### Queue mode
