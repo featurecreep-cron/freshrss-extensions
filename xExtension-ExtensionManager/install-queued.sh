@@ -84,16 +84,14 @@ if [ -d "$QUEUE_DIR" ]; then
 fi
 
 # Process removals from manifest (entries with "action":"remove")
-# Uses python3 (available in FreshRSS image) to parse JSON
-if command -v python3 >/dev/null 2>&1; then
-    removals=$(python3 -c "
-import json, sys
-m = json.load(open('$MANIFEST'))
-for k, v in m.items():
-    if v.get('action') == 'remove':
-        print(k)
+removals=$(php -r "
+\$m = json_decode(file_get_contents('$MANIFEST'), true) ?: [];
+foreach (\$m as \$k => \$v) {
+    if ((\$v['action'] ?? '') === 'remove') echo \$k . PHP_EOL;
+}
 " 2>/dev/null) || true
 
+if [ -n "$removals" ]; then
     for dir_name in $removals; do
         dir_name="$(basename "$dir_name")"
         target="$EXT_PATH/$dir_name"
