@@ -38,12 +38,6 @@ services:
       - ./freshrss-extensions:/var/www/FreshRSS/extensions
 ```
 
-If you already have extensions bind-mounted, just chmod the host path:
-
-```bash
-chmod -R g+w /path/to/your/extensions
-```
-
 #### Queue mode
 
 Override your container entrypoint in `docker-compose.yml`:
