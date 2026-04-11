@@ -86,16 +86,5 @@ if [ -n "$DATA_PATH" ] && [ -d "$DATA_PATH" ]; then
     touch "$DATA_PATH/extmgr/.entrypoint-configured"
 fi
 
-# --- Hand off to the real entrypoint ---
-
-# Auto-detect which entrypoint and CMD to exec.
-# Compose entrypoint override can strip the original CMD, so we
-# hardcode the known defaults rather than relying on "$@".
-if [ -f "/var/www/FreshRSS/Docker/entrypoint.sh" ]; then
-    exec /var/www/FreshRSS/Docker/entrypoint.sh apache2-foreground
-elif [ -x "/init" ]; then
-    exec /init
-else
-    echo "[ExtMgr] Warning: could not find FreshRSS entrypoint, running CMD directly"
-    exec "${@:-apache2-foreground}"
-fi
+# Done — exit cleanly so the next command in the chain runs.
+echo "[ExtMgr] Ready"
