@@ -4,6 +4,8 @@
   var installed = {};
   var repos = [];
   var isAdmin = false;
+  var isWritable = false;
+  var queued = {};
 
   var _initRetries = 0;
   function init() {
@@ -18,6 +20,8 @@
     installed = extConfig.configuration.installed || {};
     repos = extConfig.configuration.repos || [];
     isAdmin = !!extConfig.configuration.is_admin;
+    isWritable = !!extConfig.configuration.writable;
+    queued = extConfig.configuration.queued || {};
 
     if (!isExtensionsPage()) return;
 
@@ -30,6 +34,9 @@
     }
     if (repos.length > 0) {
       loadRepoCatalogs();
+    }
+    if (Object.keys(queued).length > 0) {
+      showQueuedBanner();
     }
   }
 
@@ -107,6 +114,15 @@
     setTimeout(function () { el.remove(); }, 4000);
   }
 
+  function showQueuedBanner() {
+    var names = Object.keys(queued).map(function (k) { return queued[k].name || k; });
+    var banner = document.createElement('div');
+    banner.className = 'ext-mgr-queued-banner';
+    banner.textContent = 'Queued for install on next restart: ' + names.join(', ');
+    var main = document.querySelector('.post') || document.querySelector('#content') || document.body;
+    main.insertBefore(banner, main.firstChild);
+  }
+
   function addRepoInput() {
     var container = document.createElement('div');
     container.className = 'ext-mgr-add-repo';
@@ -124,7 +140,7 @@
     btn.addEventListener('click', function () {
       var url = input.value.trim();
       if (!url) return;
-      if (!/^https:\/\/github\.com\/[a-zA-Z0-9._-]+\/[a-zA-Z0-9._-]+/.test(url)) {
+      if (!/^https:\/\/github\.com\/[a-zA-Z0-9._-]+\/[a-zA-Z0-9._-]+$/.test(url)) {
         showNotification('Only GitHub repository URLs are supported', true);
         return;
       }
@@ -209,7 +225,7 @@
         section.appendChild(err);
         return;
       }
-      var table = buildRepoTable(data.extensions, data.tmpDir);
+      var table = buildRepoTable(data.extensions, data.catalogToken);
       section.appendChild(table);
     }).catch(function (err) {
       loading.remove();
@@ -269,8 +285,11 @@
   }
 
   function compareVersions(a, b) {
-    var pa = String(a).split('.').map(Number);
-    var pb = String(b).split('.').map(Number);
+    // Strip pre-release suffix for numeric comparison (e.g., "0.3.3-diag1" → "0.3.3")
+    var sa = String(a).replace(/-.*$/, '');
+    var sb = String(b).replace(/-.*$/, '');
+    var pa = sa.split('.').map(Number);
+    var pb = sb.split('.').map(Number);
     var len = Math.max(pa.length, pb.length);
     for (var i = 0; i < len; i++) {
       var na = pa[i] || 0;
@@ -278,6 +297,11 @@
       if (na > nb) return 1;
       if (na < nb) return -1;
     }
+    // Same numeric version: release (no suffix) beats pre-release
+    var aPre = String(a).indexOf('-') !== -1;
+    var bPre = String(b).indexOf('-') !== -1;
+    if (aPre && !bPre) return -1;
+    if (!aPre && bPre) return 1;
     return 0;
   }
 
@@ -360,7 +384,7 @@
     });
   }
 
-  function buildRepoTable(extensions, tmpDir) {
+  function buildRepoTable(extensions, catalogToken) {
     var table = document.createElement('table');
     table.className = 'ext-mgr-repo-table';
 
@@ -413,7 +437,7 @@
         tdAction.appendChild(selfBadge);
       } else if (info) {
         if (isAdmin && compareVersions(String(ext.version), info.version) > 0) {
-          tdAction.appendChild(makeInstallButton('Update', null, ext.name, ext.dir, tmpDir));
+          tdAction.appendChild(makeInstallButton('Update', null, ext.name, ext.dir, catalogToken));
         } else {
           var badge = document.createElement('span');
           badge.className = 'ext-mgr-installed-badge';
@@ -421,7 +445,7 @@
           tdAction.appendChild(badge);
         }
       } else if (isAdmin) {
-        tdAction.appendChild(makeInstallButton('Install', null, ext.name, ext.dir, tmpDir));
+        tdAction.appendChild(makeInstallButton('Install', null, ext.name, ext.dir, catalogToken));
       }
 
       tr.appendChild(tdAction);
@@ -432,7 +456,7 @@
     return table;
   }
 
-  function makeInstallButton(label, extUrl, extName, extDir, tmpDir) {
+  function makeInstallButton(label, extUrl, extName, extDir, catalogToken) {
     var btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'ext-mgr-btn ' + (label === 'Update' ? 'ext-mgr-update' : 'ext-mgr-install');
@@ -442,35 +466,39 @@
       btn.textContent = label === 'Install' ? 'Installing...' : 'Updating...';
 
       var params = {};
-      if (extDir && tmpDir) {
-        // Per-extension install from catalog
-        params = { dir: extDir, tmpDir: tmpDir };
+      if (extDir && catalogToken) {
+        params = { dir: extDir, catalogToken: catalogToken };
       } else if (extUrl) {
-        // Direct URL install (community table)
         params = { url: extUrl, name: extName };
       }
 
       apiCall('install', params).then(function (data) {
         if (data.success) {
-          btn.textContent = '\u2713 Done';
-          btn.className = 'ext-mgr-btn ext-mgr-done';
-          showNotification(extName + ' ' + (label === 'Install' ? 'installed' : 'updated'));
-          setTimeout(function () { window.location.reload(); }, 1500);
+          if (data.queued) {
+            btn.textContent = 'Queued';
+            btn.className = 'ext-mgr-btn ext-mgr-queued';
+            showNotification(extName + ' queued — restart container to install');
+          } else {
+            btn.textContent = '\u2713 Done';
+            btn.className = 'ext-mgr-btn ext-mgr-done';
+            showNotification(extName + ' ' + (label === 'Install' ? 'installed' : 'updated'));
+            setTimeout(function () { window.location.reload(); }, 1500);
+          }
         } else {
           btn.textContent = label;
           btn.disabled = false;
-          showManualUpdateInstructions(extName, extUrl, extDir);
+          showManualUpdateInstructions(extName, extUrl, extDir, data.error);
         }
       }).catch(function (err) {
         btn.textContent = label;
         btn.disabled = false;
-        showManualUpdateInstructions(extName, extUrl, extDir);
+        showManualUpdateInstructions(extName, extUrl, extDir, err.message);
       });
     });
     return btn;
   }
 
-  function showManualUpdateInstructions(extName, extUrl, extDir) {
+  function showManualUpdateInstructions(extName, extUrl, extDir, serverError) {
     var dirName = extDir || ('xExtension-' + extName);
     var repoUrl = extUrl || '';
 
@@ -482,11 +510,18 @@
     dialog.setAttribute('role', 'dialog');
 
     var title = document.createElement('h3');
-    title.textContent = 'Update ' + extName + ' manually';
+    title.textContent = 'Install ' + extName + ' failed';
     dialog.appendChild(title);
 
+    if (serverError) {
+      var errBox = document.createElement('pre');
+      errBox.className = 'ext-mgr-dialog-error';
+      errBox.textContent = serverError;
+      dialog.appendChild(errBox);
+    }
+
     var intro = document.createElement('p');
-    intro.textContent = 'Automatic update failed. Update via the command line instead:';
+    intro.textContent = 'You can install manually via the command line:';
     dialog.appendChild(intro);
 
     var pre = document.createElement('pre');

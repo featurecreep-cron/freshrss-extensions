@@ -15,6 +15,7 @@
 .ext-mgr-install { background: #4CAF50; color: #fff !important; border-color: #43A047; }
 .ext-mgr-update { background: #FF9800; color: #fff !important; border-color: #F57C00; }
 .ext-mgr-done { background: transparent; color: inherit !important; border-color: currentColor; cursor: default; opacity: 0.6; }
+.ext-mgr-queued { background: #1976D2; color: #fff !important; border-color: #1565C0; cursor: default; }
 
 /* Trash icon next to gear */
 .ext-mgr-trash {
@@ -154,4 +155,20 @@
 .ext-mgr-dialog-note {
     font-size: 0.82em !important;
     font-style: italic;
+}
+.ext-mgr-dialog-error {
+    background: #f8d7da !important;
+    color: #842029;
+    border: 1px solid #f5c2c7;
+}
+
+/* Queued installs banner */
+.ext-mgr-queued-banner {
+    background: #e3f2fd;
+    color: #1565c0;
+    padding: 10px 16px;
+    border-radius: 4px;
+    border: 1px solid #90caf9;
+    margin-bottom: 16px;
+    font-size: 0.9em;
 }

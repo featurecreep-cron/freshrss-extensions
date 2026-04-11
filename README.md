@@ -51,7 +51,8 @@ Install, update, and remove FreshRSS extensions without SSH or file access. Add 
 1. Download this repo as a zip (Code → Download ZIP)
 2. Extract `xExtension-ExtensionManager` to your FreshRSS `extensions/` directory
 3. Enable Extension Manager in FreshRSS settings → Extensions
-4. Use Extension Manager to install the remaining extensions by pasting this repo's URL
+4. Configure an install mode — see [Extension Manager README](xExtension-ExtensionManager/README.md#install-modes)
+5. Use Extension Manager to install the remaining extensions by pasting this repo's URL
 
 ### Option 2: Manual
 
