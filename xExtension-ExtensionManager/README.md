@@ -32,8 +32,10 @@ services:
       - ./extensions:/var/www/FreshRSS/extensions
 ```
 
+On the host, from the directory containing your `docker-compose.yml`:
+
 ```bash
-chmod -R g+w ./extensions
+chmod -R g+w extensions
 ```
 
 #### Queue mode
