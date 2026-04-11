@@ -505,9 +505,19 @@
       apiCall('install', params).then(function (data) {
         if (data.success) {
           if (data.queued) {
-            btn.textContent = 'Queued — restart to apply';
+            if (entrypointConfigured) {
+              btn.textContent = 'Queued — restart to apply';
+              showNotification(extName + ' queued — restart your container to install');
+            } else {
+              btn.textContent = 'Queued — setup required';
+              showNotification(extName + ' queued — entrypoint setup required before restart will work', true);
+            }
             btn.className = 'ext-mgr-btn ext-mgr-queued';
-            showNotification(extName + ' queued — restart your container to install');
+            // Update queued state and show banner if not already visible
+            queued[extDir || extName] = { name: extName };
+            if (!document.querySelector('.ext-mgr-queued-banner')) {
+              showQueuedBanner();
+            }
           } else {
             btn.textContent = '\u2713 Done';
             btn.className = 'ext-mgr-btn ext-mgr-done';
