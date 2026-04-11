@@ -27,6 +27,11 @@ class ExtensionManagerExtension extends Minz_Extension {
     }
 
     public function addVariables($vars) {
+        // If extensions dir became writable and there's a stale queue, drain it
+        if (self::extensionsWritable()) {
+            self::drainQueue();
+        }
+
         $vars[$this->getName()]['configuration'] = [
             'installed' => self::getInstalledExtensions(),
             'repos' => $this->getUserConfigurationValue('repos') ?: [],
@@ -179,6 +184,39 @@ class ExtensionManagerExtension extends Minz_Extension {
         file_put_contents($manifestFile, json_encode($manifest, JSON_PRETTY_PRINT));
 
         return true;
+    }
+
+    /**
+     * Drain the queue by installing queued extensions directly (writable mode).
+     * Called when extensions dir is writable but a queue exists from a previous
+     * read-only session.
+     */
+    private static function drainQueue(): void {
+        $queueDir = self::queueDir() . '/queue';
+        $manifestFile = self::queueDir() . '/manifest.json';
+        if (!is_dir($queueDir) || !file_exists($manifestFile)) {
+            return;
+        }
+
+        $extPath = dirname(dirname(__FILE__));
+        $dirs = glob($queueDir . '/xExtension-*', GLOB_ONLYDIR);
+        foreach ($dirs as $srcDir) {
+            $dirName = basename($srcDir);
+            if ($dirName === 'xExtension-ExtensionManager') {
+                continue;
+            }
+            if (!file_exists($srcDir . '/metadata.json') || !file_exists($srcDir . '/extension.php')) {
+                continue;
+            }
+            $target = $extPath . '/' . $dirName;
+            if (is_dir($target)) {
+                self::recursiveDelete($target);
+            }
+            self::recursiveCopy($srcDir, $target);
+        }
+
+        self::recursiveDelete($queueDir);
+        @unlink($manifestFile);
     }
 
     /**
