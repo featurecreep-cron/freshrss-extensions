@@ -29,13 +29,11 @@ Bind-mount the extensions directory, then make it group-writable:
 services:
   freshrss:
     volumes:
-      - ./extensions:/var/www/FreshRSS/extensions
+      - /path/to/extensions:/var/www/FreshRSS/extensions
 ```
 
-On the host, from the directory containing your `docker-compose.yml`:
-
 ```bash
-chmod -R g+w extensions
+chmod -R g+w /path/to/extensions
 ```
 
 #### Queue mode
