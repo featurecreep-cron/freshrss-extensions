@@ -116,12 +116,15 @@
     setTimeout(function () { el.remove(); }, 4000);
   }
 
-  function appendBanner(banner) {
+  function appendBanner(banner, scroll) {
     var main = document.querySelector('.post') || document.querySelector('#content') || document.body;
     main.insertBefore(banner, main.firstChild);
+    if (scroll) {
+      banner.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
   }
 
-  function showQueuedBanner() {
+  function showQueuedBanner(scroll) {
     var names = Object.keys(queued).map(function (k) { return queued[k].name || k; });
     var banner = document.createElement('div');
     banner.className = 'ext-mgr-queued-banner';
@@ -146,11 +149,11 @@
       link.textContent = 'Setup instructions';
       link.target = '_blank';
       banner.appendChild(link);
-      return appendBanner(banner);
+      return appendBanner(banner, scroll);
     }
 
     banner.appendChild(explanation);
-    appendBanner(banner);
+    appendBanner(banner, scroll);
   }
 
   function addRepoInput() {
@@ -516,7 +519,7 @@
             // Update queued state and show banner if not already visible
             queued[extDir || extName] = { name: extName };
             if (!document.querySelector('.ext-mgr-queued-banner')) {
-              showQueuedBanner();
+              showQueuedBanner(true);
             }
           } else {
             btn.textContent = '\u2713 Done';
