@@ -8,7 +8,7 @@
 # Usage in docker-compose.yml (linuxserver/freshrss):
 #   entrypoint: ["/config/www/freshrss/extensions/xExtension-ExtensionManager/install-queued.sh"]
 
-set -e
+echo "[ExtMgr] Script starting" >&2
 
 # --- Process queued installs ---
 
@@ -92,12 +92,16 @@ fi
 # We run the entrypoint for its setup, then start the CMD ourselves.
 
 if [ -f "/var/www/FreshRSS/Docker/entrypoint.sh" ]; then
-    # Official image (Debian).
-    # Run entrypoint with a no-op so it does setup then returns.
+    echo "[ExtMgr] Running entrypoint setup..." >&2
     /var/www/FreshRSS/Docker/entrypoint.sh true
+    SETUP_EXIT=$?
+    echo "[ExtMgr] Entrypoint setup exited: $SETUP_EXIT" >&2
 
-    # Now run the actual CMD from the Dockerfile.
-    ([ -z "$CRON_MIN" ] || cron) && . /etc/apache2/envvars && exec apache2 -D FOREGROUND $([ -n "$OIDC_ENABLED" ] && [ "$OIDC_ENABLED" -ne 0 ] && echo "-D OIDC_ENABLED")
+    echo "[ExtMgr] Starting CMD..." >&2
+    . /etc/apache2/envvars
+    echo "[ExtMgr] Envvars loaded, starting apache2" >&2
+    ([ -z "$CRON_MIN" ] || cron)
+    exec apache2 -D FOREGROUND $([ -n "$OIDC_ENABLED" ] && [ "$OIDC_ENABLED" -ne 0 ] && echo "-D OIDC_ENABLED")
 elif [ -x "/init" ]; then
     exec /init
 else
