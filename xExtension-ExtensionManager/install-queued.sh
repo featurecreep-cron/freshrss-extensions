@@ -88,12 +88,14 @@ fi
 
 # --- Hand off to the real entrypoint ---
 
-# Auto-detect which entrypoint to exec
+# Auto-detect which entrypoint and CMD to exec.
+# Compose entrypoint override can strip the original CMD, so we
+# hardcode the known defaults rather than relying on "$@".
 if [ -f "/var/www/FreshRSS/Docker/entrypoint.sh" ]; then
-    exec /var/www/FreshRSS/Docker/entrypoint.sh "$@"
+    exec /var/www/FreshRSS/Docker/entrypoint.sh apache2-foreground
 elif [ -x "/init" ]; then
     exec /init
 else
     echo "[ExtMgr] Warning: could not find FreshRSS entrypoint, running CMD directly"
-    exec "$@"
+    exec "${@:-apache2-foreground}"
 fi
