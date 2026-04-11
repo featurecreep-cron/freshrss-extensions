@@ -46,7 +46,7 @@ Chain the queue processor before the original entrypoint in `docker-compose.yml`
 ```yaml
 services:
   freshrss:
-    entrypoint: ["/bin/sh", "-c", "/var/www/FreshRSS/extensions/xExtension-ExtensionManager/install-queued.sh && exec /var/www/FreshRSS/Docker/entrypoint.sh apache2-foreground"]
+    entrypoint: ["/bin/sh", "-c", "/var/www/FreshRSS/extensions/xExtension-ExtensionManager/install-queued.sh && exec /var/www/FreshRSS/Docker/entrypoint.sh /usr/local/bin/apache2-foreground"]
 ```
 
 **LinuxServer image:**
