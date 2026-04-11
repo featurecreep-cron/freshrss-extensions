@@ -141,7 +141,7 @@
     if (entrypointConfigured) {
       explanation.textContent = 'Restart your container to install queued extensions.';
     } else {
-      explanation.textContent = 'The extensions directory is read-only. Queue mode requires a one-time entrypoint setup. ';
+      explanation.textContent = 'Extensions are queued because the extensions directory is read-only. One-time setup required. ';
       banner.appendChild(explanation);
 
       var link = document.createElement('a');
@@ -513,7 +513,7 @@
               showNotification(extName + ' queued — restart your container to install');
             } else {
               btn.textContent = 'Queued — setup required';
-              showNotification(extName + ' queued — entrypoint setup required before restart will work', true);
+              showNotification(extName + ' queued — one-time setup required, see banner above', true);
             }
             btn.className = 'ext-mgr-btn ext-mgr-queued';
             // Update queued state and show banner if not already visible
