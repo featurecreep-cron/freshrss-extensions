@@ -88,16 +88,18 @@ fi
 
 # --- Hand off to the real entrypoint ---
 
-echo "[ExtMgr] DEBUG: \$@ = [$*]" >&2
-echo "[ExtMgr] DEBUG: arg count = $#" >&2
+# --- Hand off to the real entrypoint ---
 
-# Pass through the original CMD ($@) from Docker. The FreshRSS entrypoint
-# does setup then exec "$@", which runs the Dockerfile CMD.
+# Docker does not pass the Dockerfile CMD when entrypoint is overridden.
+# Source the FreshRSS entrypoint (runs setup), then start Apache directly.
 if [ -f "/var/www/FreshRSS/Docker/entrypoint.sh" ]; then
-    exec /var/www/FreshRSS/Docker/entrypoint.sh "$@"
+    # Official image (Debian). The entrypoint does setup then exec "$@".
+    # We pass the same CMD the Dockerfile defines.
+    exec /var/www/FreshRSS/Docker/entrypoint.sh \
+        sh -c '([ -z "$CRON_MIN" ] || cron) && . /etc/apache2/envvars && exec apache2 -D FOREGROUND $([ -n "$OIDC_ENABLED" ] && [ "$OIDC_ENABLED" -ne 0 ] && echo "-D OIDC_ENABLED")'
 elif [ -x "/init" ]; then
-    exec /init "$@"
+    exec /init
 else
     echo "[ExtMgr] Warning: could not find FreshRSS entrypoint"
-    exec "$@"
+    exit 1
 fi
