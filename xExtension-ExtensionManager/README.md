@@ -40,23 +40,15 @@ services:
 
 #### Queue mode
 
-Chain the queue processor before the original entrypoint in `docker-compose.yml`:
+Override the container entrypoint in `docker-compose.yml`:
 
-**Official FreshRSS image:**
 ```yaml
 services:
   freshrss:
-    entrypoint: ["/bin/sh", "-c", "/var/www/FreshRSS/extensions/xExtension-ExtensionManager/install-queued.sh && exec /var/www/FreshRSS/Docker/entrypoint.sh /usr/local/bin/apache2-foreground"]
+    entrypoint: /var/www/FreshRSS/extensions/xExtension-ExtensionManager/install-queued.sh
 ```
 
-**LinuxServer image:**
-```yaml
-services:
-  freshrss:
-    entrypoint: ["/bin/sh", "-c", "/config/www/freshrss/extensions/xExtension-ExtensionManager/install-queued.sh && exec /init"]
-```
-
-Processes queued installs at startup, then hands off to the original entrypoint.
+The script processes queued installs, then hands off to the original FreshRSS entrypoint and CMD.
 
 ## Configuration
 

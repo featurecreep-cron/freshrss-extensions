@@ -86,5 +86,18 @@ if [ -n "$DATA_PATH" ] && [ -d "$DATA_PATH" ]; then
     touch "$DATA_PATH/extmgr/.entrypoint-configured"
 fi
 
-# Done — exit cleanly so the next command in the chain runs.
-echo "[ExtMgr] Ready"
+# --- Hand off to the real entrypoint ---
+
+# The FreshRSS CMD is a compound shell expression, not a simple binary.
+# We source the entrypoint (which does setup then exec "$@") and pass
+# the original CMD through.
+if [ -f "/var/www/FreshRSS/Docker/entrypoint.sh" ]; then
+    # Official image (Debian): CMD from Dockerfile
+    exec /var/www/FreshRSS/Docker/entrypoint.sh \
+        sh -c '([ -z "$CRON_MIN" ] || cron) && . /etc/apache2/envvars && exec apache2 -D FOREGROUND $([ -n "$OIDC_ENABLED" ] && [ "$OIDC_ENABLED" -ne 0 ] && echo "-D OIDC_ENABLED")'
+elif [ -x "/init" ]; then
+    exec /init
+else
+    echo "[ExtMgr] Warning: could not find FreshRSS entrypoint"
+    exit 1
+fi
