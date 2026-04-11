@@ -1,12 +1,12 @@
 #!/bin/sh
-# Extension Manager — entrypoint wrapper
+# Extension Manager — queue processor
 # Processes queued extension installs, then hands off to the real entrypoint.
 #
 # Usage in docker-compose.yml (official FreshRSS image):
-#   entrypoint: /var/www/FreshRSS/extensions/xExtension-ExtensionManager/install-queued.sh
+#   entrypoint: ["/var/www/FreshRSS/extensions/xExtension-ExtensionManager/install-queued.sh"]
 #
 # Usage in docker-compose.yml (linuxserver/freshrss):
-#   entrypoint: /config/www/freshrss/extensions/xExtension-ExtensionManager/install-queued.sh
+#   entrypoint: ["/config/www/freshrss/extensions/xExtension-ExtensionManager/install-queued.sh"]
 
 set -e
 
@@ -86,17 +86,18 @@ if [ -n "$DATA_PATH" ] && [ -d "$DATA_PATH" ]; then
     touch "$DATA_PATH/extmgr/.entrypoint-configured"
 fi
 
-# --- Hand off to the real entrypoint ---
+# --- Hand off to the real entrypoint + CMD ---
 
-# --- Hand off to the real entrypoint ---
+# Docker does not preserve the Dockerfile CMD when entrypoint is overridden.
+# We run the entrypoint for its setup, then start the CMD ourselves.
 
-# Docker does not pass the Dockerfile CMD when entrypoint is overridden.
-# Source the FreshRSS entrypoint (runs setup), then start Apache directly.
 if [ -f "/var/www/FreshRSS/Docker/entrypoint.sh" ]; then
-    # Official image (Debian). The entrypoint does setup then exec "$@".
-    # We pass the same CMD the Dockerfile defines.
-    exec /var/www/FreshRSS/Docker/entrypoint.sh \
-        sh -c '([ -z "$CRON_MIN" ] || cron) && . /etc/apache2/envvars && exec apache2 -D FOREGROUND $([ -n "$OIDC_ENABLED" ] && [ "$OIDC_ENABLED" -ne 0 ] && echo "-D OIDC_ENABLED")'
+    # Official image (Debian).
+    # Run entrypoint with a no-op so it does setup then returns.
+    /var/www/FreshRSS/Docker/entrypoint.sh true
+
+    # Now run the actual CMD from the Dockerfile.
+    ([ -z "$CRON_MIN" ] || cron) && . /etc/apache2/envvars && exec apache2 -D FOREGROUND $([ -n "$OIDC_ENABLED" ] && [ "$OIDC_ENABLED" -ne 0 ] && echo "-D OIDC_ENABLED")
 elif [ -x "/init" ]; then
     exec /init
 else
