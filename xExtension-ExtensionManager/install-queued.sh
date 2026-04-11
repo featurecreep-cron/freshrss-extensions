@@ -88,6 +88,9 @@ fi
 
 # --- Hand off to the real entrypoint ---
 
+echo "[ExtMgr] DEBUG: \$@ = [$*]"
+echo "[ExtMgr] DEBUG: arg count = $#"
+
 # Pass through the original CMD ($@) from Docker. The FreshRSS entrypoint
 # does setup then exec "$@", which runs the Dockerfile CMD.
 if [ -f "/var/www/FreshRSS/Docker/entrypoint.sh" ]; then
