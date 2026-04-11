@@ -115,6 +115,12 @@
     setTimeout(function () { el.remove(); }, 4000);
   }
 
+  function refreshQueuedBanner() {
+    var existing = document.querySelector('.ext-mgr-queued-banner');
+    if (existing) existing.remove();
+    showQueuedBanner(true);
+  }
+
   function appendBanner(banner, scroll) {
     var main = document.querySelector('.post') || document.querySelector('#content') || document.body;
     main.insertBefore(banner, main.firstChild);
@@ -513,9 +519,7 @@
             showNotification(extName + ' queued — see banner for apply command');
             // Update queued state and show banner if not already visible
             queued[extDir || extName] = { name: extName };
-            if (!document.querySelector('.ext-mgr-queued-banner')) {
-              showQueuedBanner(true);
-            }
+            refreshQueuedBanner();
           } else {
             btn.textContent = '\u2713 Done';
             btn.className = 'ext-mgr-btn ext-mgr-done';
