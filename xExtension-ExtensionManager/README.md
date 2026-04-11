@@ -40,15 +40,15 @@ services:
 
 #### Queue mode
 
-Override the container entrypoint in `docker-compose.yml`:
+Override the container entrypoint in `docker-compose.yml` (list form required):
 
 ```yaml
 services:
   freshrss:
-    entrypoint: /var/www/FreshRSS/extensions/xExtension-ExtensionManager/install-queued.sh
+    entrypoint: ["/var/www/FreshRSS/extensions/xExtension-ExtensionManager/install-queued.sh"]
 ```
 
-The script processes queued installs, then hands off to the original FreshRSS entrypoint and CMD.
+The script processes queued installs, then hands off to the original FreshRSS entrypoint.
 
 ## Configuration
 
