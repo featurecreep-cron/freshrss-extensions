@@ -29,6 +29,13 @@ fi
 QUEUE_DIR="${DATA_PATH:-}/extmgr/queue"
 MANIFEST="${DATA_PATH:-}/extmgr/manifest.json"
 
+# Debug: log detection results (remove after testing)
+echo "[ExtMgr] DATA_PATH=$DATA_PATH"
+echo "[ExtMgr] EXT_PATH=$EXT_PATH"
+echo "[ExtMgr] MANIFEST=$MANIFEST"
+echo "[ExtMgr] manifest exists: $([ -f "$MANIFEST" ] && echo yes || echo no)"
+echo "[ExtMgr] data/extmgr contents: $(ls -la "${DATA_PATH:-}/extmgr/" 2>&1 || echo 'dir not found')"
+
 if [ ! -f "$MANIFEST" ]; then
     echo "[ExtMgr] No queued operations"
     exit 0
