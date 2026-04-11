@@ -33,6 +33,7 @@ class ExtensionManagerExtension extends Minz_Extension {
             'is_admin' => FreshRSS_Auth::hasAccess('admin'),
             'writable' => self::extensionsWritable(),
             'queued' => self::getQueuedInstalls(),
+            'entrypoint_configured' => file_exists(self::queueDir() . '/.entrypoint-configured'),
         ];
         return $vars;
     }

@@ -80,6 +80,12 @@ if [ -d "$QUEUE_DIR" ] && [ -f "$MANIFEST" ] && [ -n "$EXT_PATH" ]; then
     echo "[ExtMgr] Queue processing complete"
 fi
 
+# Mark that the entrypoint wrapper has run at least once
+if [ -n "$DATA_PATH" ] && [ -d "$DATA_PATH" ]; then
+    mkdir -p "$DATA_PATH/extmgr"
+    touch "$DATA_PATH/extmgr/.entrypoint-configured"
+fi
+
 # --- Hand off to the real entrypoint ---
 
 # Auto-detect which entrypoint to exec

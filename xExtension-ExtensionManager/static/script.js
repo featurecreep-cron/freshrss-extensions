@@ -6,6 +6,7 @@
   var isAdmin = false;
   var isWritable = false;
   var queued = {};
+  var entrypointConfigured = false;
 
   var _initRetries = 0;
   function init() {
@@ -22,6 +23,7 @@
     isAdmin = !!extConfig.configuration.is_admin;
     isWritable = !!extConfig.configuration.writable;
     queued = extConfig.configuration.queued || {};
+    entrypointConfigured = !!extConfig.configuration.entrypoint_configured;
 
     if (!isExtensionsPage()) return;
 
@@ -114,6 +116,11 @@
     setTimeout(function () { el.remove(); }, 4000);
   }
 
+  function appendBanner(banner) {
+    var main = document.querySelector('.post') || document.querySelector('#content') || document.body;
+    main.insertBefore(banner, main.firstChild);
+  }
+
   function showQueuedBanner() {
     var names = Object.keys(queued).map(function (k) { return queued[k].name || k; });
     var banner = document.createElement('div');
@@ -127,17 +134,23 @@
 
     var explanation = document.createElement('span');
     explanation.className = 'ext-mgr-queued-detail';
-    explanation.textContent = 'The extensions directory is read-only. Queued extensions are installed on container restart. ';
+
+    if (entrypointConfigured) {
+      explanation.textContent = 'Restart your container to install queued extensions.';
+    } else {
+      explanation.textContent = 'The extensions directory is read-only. Queue mode requires a one-time entrypoint setup. ';
+      banner.appendChild(explanation);
+
+      var link = document.createElement('a');
+      link.href = 'https://github.com/featurecreep-cron/freshrss-extensions/tree/main/xExtension-ExtensionManager#queue-mode';
+      link.textContent = 'Setup instructions';
+      link.target = '_blank';
+      banner.appendChild(link);
+      return appendBanner(banner);
+    }
+
     banner.appendChild(explanation);
-
-    var link = document.createElement('a');
-    link.href = 'https://github.com/featurecreep-cron/freshrss-extensions/tree/main/xExtension-ExtensionManager#install-modes';
-    link.textContent = 'Setup instructions';
-    link.target = '_blank';
-    banner.appendChild(link);
-
-    var main = document.querySelector('.post') || document.querySelector('#content') || document.body;
-    main.insertBefore(banner, main.firstChild);
+    appendBanner(banner);
   }
 
   function addRepoInput() {
