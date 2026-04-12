@@ -15,13 +15,9 @@ Drop `xExtension-ExtensionManager` into your FreshRSS `extensions/` directory. E
 
 ### Install modes
 
-FreshRSS keeps the extensions directory read-only at runtime. Extension Manager needs write access to install extensions, so you need to pick one of two approaches.
-
-**Writable mode** — Bind-mount and `chmod` the extensions directory. Installs happen immediately. This means the web server process can write arbitrary PHP into a directory FreshRSS auto-loads and executes. A vulnerability in FreshRSS or any extension becomes a code execution vector.
-
-**Queue mode** — Extensions directory stays read-only. Installs are staged to the data directory. Run a single command to apply them. No compose changes, no restart.
-
 #### Writable mode
+
+> **Warning:** This makes the extensions directory writable by the web server. A vulnerability in FreshRSS or any extension becomes a code execution vector.
 
 Bind-mount the internal extensions directory to a host path and make it group-writable. If you don't already have a bind mount for extensions, copy the existing ones out first:
 
