@@ -130,14 +130,32 @@
   }
 
   function showQueuedBanner(scroll) {
-    var names = Object.keys(queued).map(function (k) { return queued[k].name || k; });
+    var installs = [];
+    var removals = [];
+    Object.keys(queued).forEach(function (k) {
+      var entry = queued[k];
+      var name = entry.name || k;
+      if (entry.action === 'remove') {
+        removals.push(name);
+      } else {
+        installs.push(name);
+      }
+    });
+
     var banner = document.createElement('div');
     banner.className = 'ext-mgr-queued-banner';
 
     var title = document.createElement('strong');
-    title.textContent = 'Extensions queued: ';
+    title.textContent = 'Extensions queued:';
     banner.appendChild(title);
-    banner.appendChild(document.createTextNode(names.join(', ')));
+
+    if (installs.length > 0) {
+      banner.appendChild(document.createTextNode(' Install: ' + installs.join(', ')));
+    }
+    if (removals.length > 0) {
+      if (installs.length > 0) banner.appendChild(document.createTextNode(';'));
+      banner.appendChild(document.createTextNode(' Remove: ' + removals.join(', ')));
+    }
     banner.appendChild(document.createElement('br'));
 
     var explanation = document.createElement('span');
@@ -301,9 +319,7 @@
               btn.disabled = true;
               showNotification(extName + ' removal queued — run install-queued.sh to apply');
               queued[dirName] = { name: extName, action: 'remove' };
-              if (!document.querySelector('.ext-mgr-queued-banner')) {
-                showQueuedBanner(true);
-              }
+              refreshQueuedBanner();
             } else {
               li.remove();
               showNotification(extName + ' removed');
@@ -518,7 +534,7 @@
             btn.className = 'ext-mgr-btn ext-mgr-queued';
             showNotification(extName + ' queued — see banner for apply command');
             // Update queued state and show banner if not already visible
-            queued[extDir || extName] = { name: extName };
+            queued[extDir || extName] = { name: extName, action: 'install' };
             refreshQueuedBanner();
           } else {
             btn.textContent = '\u2713 Done';
