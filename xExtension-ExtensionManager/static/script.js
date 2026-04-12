@@ -170,7 +170,7 @@
 
     banner.appendChild(document.createElement('br'));
     var setupLink = document.createElement('a');
-    setupLink.href = 'https://github.com/featurecreep-cron/freshrss-extensions#install-modes';
+    setupLink.href = 'https://github.com/featurecreep-cron/freshrss-extensions/blob/main/xExtension-ExtensionManager/README.md#install-modes';
     setupLink.target = '_blank';
     setupLink.textContent = 'Other install modes';
     setupLink.style.cssText = 'font-size: 0.85em;';
