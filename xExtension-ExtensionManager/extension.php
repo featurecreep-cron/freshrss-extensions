@@ -212,8 +212,10 @@ class ExtensionManagerExtension extends Minz_Extension {
         if (file_exists($manifestFile)) {
             $manifest = json_decode(file_get_contents($manifestFile), true) ?: [];
         }
+        $metaFile = $extPath . '/' . $dirName . '/metadata.json';
+        $meta = file_exists($metaFile) ? json_decode(file_get_contents($metaFile), true) : null;
         $manifest[$dirName] = [
-            'name' => $dirName,
+            'name' => $meta['name'] ?? $dirName,
             'action' => 'remove',
             'queued_at' => date('c'),
         ];
@@ -432,7 +434,7 @@ class ExtensionManagerExtension extends Minz_Extension {
         if (!is_writable($extPath)) {
             return 'Extensions directory is not writable. '
                 . 'See the Extension Manager README for setup instructions: '
-                . 'https://github.com/featurecreep-cron/freshrss-extensions#extension-manager';
+                . 'https://github.com/featurecreep-cron/freshrss-extensions/blob/main/xExtension-ExtensionManager/README.md#install-modes';
         }
 
         // Save enabled state

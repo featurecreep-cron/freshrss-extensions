@@ -7,7 +7,6 @@
   var isWritable = false;
   var queued = {};
 
-
   var _initRetries = 0;
   function init() {
     if (typeof context === 'undefined') {
