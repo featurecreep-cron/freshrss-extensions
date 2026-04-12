@@ -48,18 +48,6 @@ docker exec freshrss sh /var/www/FreshRSS/extensions/xExtension-ExtensionManager
 
 Refresh FreshRSS in your browser after running.
 
-To run automatically when the container is created, add a `post_start` hook (Compose v2.30+):
-
-```yaml
-services:
-  freshrss:
-    post_start:
-      - command: sh /var/www/FreshRSS/extensions/xExtension-ExtensionManager/install-queued.sh
-        user: root
-```
-
-Note: `post_start` fires on container creation (`docker compose up`, image updates, `--force-recreate`), not on `docker compose restart`. For queued extensions to be applied after a restart, run the `docker exec` command above.
-
 ## Configuration
 
 Settings → Extensions → Extension Manager → Configure. Add GitHub repository URLs (one per line) as extension sources.
