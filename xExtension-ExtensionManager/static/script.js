@@ -4,6 +4,8 @@
   var installed = {};
   var repos = [];
   var isAdmin = false;
+  var isWritable = false;
+  var queued = {};
 
   var _initRetries = 0;
   function init() {
@@ -18,6 +20,8 @@
     installed = extConfig.configuration.installed || {};
     repos = extConfig.configuration.repos || [];
     isAdmin = !!extConfig.configuration.is_admin;
+    isWritable = !!extConfig.configuration.writable;
+    queued = extConfig.configuration.queued || {};
 
     if (!isExtensionsPage()) return;
 
@@ -30,6 +34,9 @@
     }
     if (repos.length > 0) {
       loadRepoCatalogs();
+    }
+    if (Object.keys(queued).length > 0) {
+      showQueuedBanner();
     }
   }
 
@@ -107,6 +114,70 @@
     setTimeout(function () { el.remove(); }, 4000);
   }
 
+  function refreshQueuedBanner() {
+    var existing = document.querySelector('.ext-mgr-queued-banner');
+    if (existing) existing.remove();
+    showQueuedBanner(true);
+  }
+
+  function appendBanner(banner, scroll) {
+    var main = document.querySelector('.post') || document.querySelector('#content') || document.body;
+    main.insertBefore(banner, main.firstChild);
+    if (scroll) {
+      banner.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }
+
+  function showQueuedBanner(scroll) {
+    var installs = [];
+    var removals = [];
+    Object.keys(queued).forEach(function (k) {
+      var entry = queued[k];
+      var name = entry.name || k;
+      if (entry.action === 'remove') {
+        removals.push(name);
+      } else {
+        installs.push(name);
+      }
+    });
+
+    var banner = document.createElement('div');
+    banner.className = 'ext-mgr-queued-banner';
+
+    var title = document.createElement('strong');
+    title.textContent = 'Extensions queued:';
+    banner.appendChild(title);
+
+    if (installs.length > 0) {
+      banner.appendChild(document.createTextNode(' Install: ' + installs.join(', ')));
+    }
+    if (removals.length > 0) {
+      if (installs.length > 0) banner.appendChild(document.createTextNode(';'));
+      banner.appendChild(document.createTextNode(' Remove: ' + removals.join(', ')));
+    }
+    banner.appendChild(document.createElement('br'));
+
+    var explanation = document.createElement('span');
+    explanation.className = 'ext-mgr-queued-detail';
+    explanation.textContent = 'Apply with: ';
+    banner.appendChild(explanation);
+
+    var cmd = document.createElement('code');
+    cmd.textContent = 'docker exec freshrss sh /var/www/FreshRSS/extensions/xExtension-ExtensionManager/install-queued.sh';
+    cmd.style.cssText = 'font-size: 0.85em; user-select: all;';
+    banner.appendChild(cmd);
+
+    banner.appendChild(document.createElement('br'));
+    var setupLink = document.createElement('a');
+    setupLink.href = 'https://github.com/featurecreep-cron/freshrss-extensions/blob/main/xExtension-ExtensionManager/README.md#install-modes';
+    setupLink.target = '_blank';
+    setupLink.textContent = 'Other install modes';
+    setupLink.style.cssText = 'font-size: 0.85em;';
+    banner.appendChild(setupLink);
+
+    appendBanner(banner, scroll);
+  }
+
   function addRepoInput() {
     var container = document.createElement('div');
     container.className = 'ext-mgr-add-repo';
@@ -124,7 +195,7 @@
     btn.addEventListener('click', function () {
       var url = input.value.trim();
       if (!url) return;
-      if (!/^https:\/\/github\.com\/[a-zA-Z0-9._-]+\/[a-zA-Z0-9._-]+/.test(url)) {
+      if (!/^https:\/\/github\.com\/[a-zA-Z0-9._-]+\/[a-zA-Z0-9._-]+$/.test(url)) {
         showNotification('Only GitHub repository URLs are supported', true);
         return;
       }
@@ -209,7 +280,7 @@
         section.appendChild(err);
         return;
       }
-      var table = buildRepoTable(data.extensions, data.tmpDir);
+      var table = buildRepoTable(data.extensions, data.catalogToken);
       section.appendChild(table);
     }).catch(function (err) {
       loading.remove();
@@ -251,9 +322,16 @@
         btn.disabled = true;
         apiCall('remove', { dir: dirName }).then(function (data) {
           if (data.success) {
-            li.remove();
-            showNotification(extName + ' removed');
-            setTimeout(function () { window.location.reload(); }, 1500);
+            if (data.queued) {
+              btn.disabled = true;
+              showNotification(extName + ' removal queued — run install-queued.sh to apply');
+              queued[dirName] = { name: extName, action: 'remove' };
+              refreshQueuedBanner();
+            } else {
+              li.remove();
+              showNotification(extName + ' removed');
+              setTimeout(function () { window.location.reload(); }, 1500);
+            }
           } else {
             showNotification(data.error || 'Failed to remove', true);
             btn.disabled = false;
@@ -269,8 +347,11 @@
   }
 
   function compareVersions(a, b) {
-    var pa = String(a).split('.').map(Number);
-    var pb = String(b).split('.').map(Number);
+    // Strip pre-release suffix for numeric comparison (e.g., "0.3.3-diag1" → "0.3.3")
+    var sa = String(a).replace(/-.*$/, '');
+    var sb = String(b).replace(/-.*$/, '');
+    var pa = sa.split('.').map(Number);
+    var pb = sb.split('.').map(Number);
     var len = Math.max(pa.length, pb.length);
     for (var i = 0; i < len; i++) {
       var na = pa[i] || 0;
@@ -278,6 +359,11 @@
       if (na > nb) return 1;
       if (na < nb) return -1;
     }
+    // Same numeric version: release (no suffix) beats pre-release
+    var aPre = String(a).indexOf('-') !== -1;
+    var bPre = String(b).indexOf('-') !== -1;
+    if (aPre && !bPre) return -1;
+    if (!aPre && bPre) return 1;
     return 0;
   }
 
@@ -360,7 +446,7 @@
     });
   }
 
-  function buildRepoTable(extensions, tmpDir) {
+  function buildRepoTable(extensions, catalogToken) {
     var table = document.createElement('table');
     table.className = 'ext-mgr-repo-table';
 
@@ -413,7 +499,7 @@
         tdAction.appendChild(selfBadge);
       } else if (info) {
         if (isAdmin && compareVersions(String(ext.version), info.version) > 0) {
-          tdAction.appendChild(makeInstallButton('Update', null, ext.name, ext.dir, tmpDir));
+          tdAction.appendChild(makeInstallButton('Update', null, ext.name, ext.dir, catalogToken));
         } else {
           var badge = document.createElement('span');
           badge.className = 'ext-mgr-installed-badge';
@@ -421,7 +507,7 @@
           tdAction.appendChild(badge);
         }
       } else if (isAdmin) {
-        tdAction.appendChild(makeInstallButton('Install', null, ext.name, ext.dir, tmpDir));
+        tdAction.appendChild(makeInstallButton('Install', null, ext.name, ext.dir, catalogToken));
       }
 
       tr.appendChild(tdAction);
@@ -432,7 +518,7 @@
     return table;
   }
 
-  function makeInstallButton(label, extUrl, extName, extDir, tmpDir) {
+  function makeInstallButton(label, extUrl, extName, extDir, catalogToken) {
     var btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'ext-mgr-btn ' + (label === 'Update' ? 'ext-mgr-update' : 'ext-mgr-install');
@@ -442,35 +528,42 @@
       btn.textContent = label === 'Install' ? 'Installing...' : 'Updating...';
 
       var params = {};
-      if (extDir && tmpDir) {
-        // Per-extension install from catalog
-        params = { dir: extDir, tmpDir: tmpDir };
+      if (extDir && catalogToken) {
+        params = { dir: extDir, catalogToken: catalogToken };
       } else if (extUrl) {
-        // Direct URL install (community table)
         params = { url: extUrl, name: extName };
       }
 
       apiCall('install', params).then(function (data) {
         if (data.success) {
-          btn.textContent = '\u2713 Done';
-          btn.className = 'ext-mgr-btn ext-mgr-done';
-          showNotification(extName + ' ' + (label === 'Install' ? 'installed' : 'updated'));
-          setTimeout(function () { window.location.reload(); }, 1500);
+          if (data.queued) {
+            btn.textContent = 'Queued';
+            btn.className = 'ext-mgr-btn ext-mgr-queued';
+            showNotification(extName + ' queued — see banner for apply command');
+            // Update queued state and show banner if not already visible
+            queued[extDir || extName] = { name: extName, action: 'install' };
+            refreshQueuedBanner();
+          } else {
+            btn.textContent = '\u2713 Done';
+            btn.className = 'ext-mgr-btn ext-mgr-done';
+            showNotification(extName + ' ' + (label === 'Install' ? 'installed' : 'updated'));
+            setTimeout(function () { window.location.reload(); }, 1500);
+          }
         } else {
           btn.textContent = label;
           btn.disabled = false;
-          showManualUpdateInstructions(extName, extUrl, extDir);
+          showManualUpdateInstructions(extName, extUrl, extDir, data.error);
         }
       }).catch(function (err) {
         btn.textContent = label;
         btn.disabled = false;
-        showManualUpdateInstructions(extName, extUrl, extDir);
+        showManualUpdateInstructions(extName, extUrl, extDir, err.message);
       });
     });
     return btn;
   }
 
-  function showManualUpdateInstructions(extName, extUrl, extDir) {
+  function showManualUpdateInstructions(extName, extUrl, extDir, serverError) {
     var dirName = extDir || ('xExtension-' + extName);
     var repoUrl = extUrl || '';
 
@@ -482,11 +575,18 @@
     dialog.setAttribute('role', 'dialog');
 
     var title = document.createElement('h3');
-    title.textContent = 'Update ' + extName + ' manually';
+    title.textContent = 'Install ' + extName + ' failed';
     dialog.appendChild(title);
 
+    if (serverError) {
+      var errBox = document.createElement('pre');
+      errBox.className = 'ext-mgr-dialog-error';
+      errBox.textContent = serverError;
+      dialog.appendChild(errBox);
+    }
+
     var intro = document.createElement('p');
-    intro.textContent = 'Automatic update failed. Update via the command line instead:';
+    intro.textContent = 'You can install manually via the command line:';
     dialog.appendChild(intro);
 
     var pre = document.createElement('pre');

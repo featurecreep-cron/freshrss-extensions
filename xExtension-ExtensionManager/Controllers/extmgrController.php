@@ -25,29 +25,54 @@ final class FreshExtension_extmgr_Controller extends Minz_ActionController {
         }
 
         $url = Minz_Request::paramString('url');
-        $dir = Minz_Request::paramString('dir');
-        $tmpDir = Minz_Request::paramString('tmpDir');
+        $dir = basename(Minz_Request::paramString('dir'));
+        $catalogToken = Minz_Request::paramString('catalogToken');
 
-        // Per-extension install from an already-extracted repo
-        if ($dir && $tmpDir) {
-            $result = ExtensionManagerExtension::installFromExtracted($tmpDir, $dir);
-            if ($result === true) {
-                $this->sendJson(['success' => true, 'message' => $dir . ' installed successfully']);
+        // Per-extension install from a catalog session
+        if ($dir && $catalogToken) {
+            $tmpDir = ExtensionManagerExtension::getCatalogSession($catalogToken);
+            if (!$tmpDir) {
+                $this->sendJson(['error' => 'Catalog session expired. Refresh the page and try again.'], 400);
             }
-            $this->sendJson(['error' => is_string($result) ? $result : 'Unknown error'], 500);
+
+            if (ExtensionManagerExtension::extensionsWritable()) {
+                $result = ExtensionManagerExtension::installFromExtracted($tmpDir, $dir);
+                if ($result === true) {
+                    $this->sendJson(['success' => true, 'message' => $dir . ' installed successfully']);
+                }
+                $this->sendJson(['error' => is_string($result) ? $result : 'Unknown error'], 500);
+            } else {
+                $result = ExtensionManagerExtension::queueInstall($tmpDir, $dir);
+                if ($result === true) {
+                    $this->sendJson([
+                        'success' => true,
+                        'queued' => true,
+                        'message' => $dir . ' queued for installation. Restart your FreshRSS container to complete.',
+                    ]);
+                }
+                $this->sendJson(['error' => is_string($result) ? $result : 'Unknown error'], 500);
+            }
         }
 
-        // Direct URL install
+        // Direct URL install (community table, single-extension repos)
         if ($url) {
             $name = Minz_Request::paramString('name');
             $result = ExtensionManagerExtension::downloadAndInstall($url, $name ?: null);
             if ($result === true) {
-                $this->sendJson(['success' => true, 'message' => 'Extension installed successfully']);
+                if (ExtensionManagerExtension::extensionsWritable()) {
+                    $this->sendJson(['success' => true, 'message' => 'Extension installed successfully']);
+                } else {
+                    $this->sendJson([
+                        'success' => true,
+                        'queued' => true,
+                        'message' => 'Extension queued for installation. Restart your FreshRSS container to complete.',
+                    ]);
+                }
             }
             $this->sendJson(['error' => is_string($result) ? $result : 'Unknown error'], 500);
         }
 
-        $this->sendJson(['error' => 'Missing url or dir+tmpDir parameters'], 400);
+        $this->sendJson(['error' => 'Missing url or dir+catalogToken parameters'], 400);
     }
 
     public function catalogAction(): void {
@@ -64,7 +89,7 @@ final class FreshExtension_extmgr_Controller extends Minz_ActionController {
         $this->sendJson([
             'success' => true,
             'extensions' => $result['extensions'],
-            'tmpDir' => $result['tmpDir'],
+            'catalogToken' => $result['catalogToken'],
         ]);
     }
 
@@ -79,9 +104,18 @@ final class FreshExtension_extmgr_Controller extends Minz_ActionController {
             $this->sendJson(['error' => 'Missing dir parameter'], 400);
         }
 
-        $result = ExtensionManagerExtension::removeExtension($dir);
+        if (ExtensionManagerExtension::extensionsWritable()) {
+            $result = ExtensionManagerExtension::removeExtension($dir);
+            if ($result === true) {
+                $this->sendJson(['success' => true, 'message' => 'Extension removed']);
+            }
+            $this->sendJson(['error' => is_string($result) ? $result : 'Unknown error'], 500);
+        }
+
+        // Queue mode: stage removal for next queue processing
+        $result = ExtensionManagerExtension::queueRemove($dir);
         if ($result === true) {
-            $this->sendJson(['success' => true, 'message' => 'Extension removed']);
+            $this->sendJson(['success' => true, 'queued' => true, 'message' => 'Removal queued']);
         }
         $this->sendJson(['error' => is_string($result) ? $result : 'Unknown error'], 500);
     }
@@ -89,6 +123,8 @@ final class FreshExtension_extmgr_Controller extends Minz_ActionController {
     public function statusAction(): void {
         $this->sendJson([
             'installed' => ExtensionManagerExtension::getInstalledExtensions(),
+            'writable' => ExtensionManagerExtension::extensionsWritable(),
+            'queued' => ExtensionManagerExtension::getQueuedInstalls(),
         ]);
     }
 
