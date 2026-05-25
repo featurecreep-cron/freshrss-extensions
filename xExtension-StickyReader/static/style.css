@@ -112,6 +112,19 @@
     flex-shrink: 0 !important;
 }
 
+/* ===== Flat article headers (strip decorative hover/active backgrounds) ===== */
+.rv-scroll-active .flux.not_read .flux_header { background-color: transparent !important; }
+.rv-scroll-active .flux.not_read:not(.current):hover .flux_header { background-color: transparent !important; }
+.rv-scroll-active .flux.not_read:not(.current):hover .flux_header .title { background-color: transparent !important; }
+.rv-scroll-active .flux.not_read.current .flux_header { background-color: transparent !important; }
+.rv-scroll-active .flux .flux_header:hover { background-color: transparent !important; }
+.rv-scroll-active .flux:not(.current):hover .flux_header { background-color: transparent !important; }
+.rv-scroll-active .flux.current .flux_header { background-color: transparent !important; }
+.rv-scroll-active .flux.favorite:not(.current) .flux_header { background-color: transparent !important; }
+.rv-scroll-active .flux.favorite:not(.current):hover .flux_header { background-color: transparent !important; }
+.rv-scroll-active .flux.favorite:not(.current):hover .flux_header .title { background-color: transparent !important; }
+.rv-scroll-active .flux.favorite.current .flux_header { background-color: transparent !important; }
+
 /* Hide subscription management bar */
 .rv-hide-sub-mgmt .stick.configure-feeds {
     display: none !important;

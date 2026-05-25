@@ -1,0 +1,8 @@
+{
+    "name": "Compact Reader",
+    "author": "featurecreep-cron",
+    "description": "NewsBlur-inspired dense layout — smaller fonts, tighter spacing, full-width titles",
+    "version": "0.1.0",
+    "entrypoint": "CompactReader",
+    "type": "user"
+}
