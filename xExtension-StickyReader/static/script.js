@@ -23,6 +23,16 @@
     else window.scrollBy({ top: delta, behavior: 'instant' });
   }
 
+  function findBackground(el) {
+    var current = el;
+    while (current && current !== document.documentElement) {
+      var bg = getComputedStyle(current).backgroundColor;
+      if (bg && bg !== 'transparent' && bg !== 'rgba(0, 0, 0, 0)') return bg;
+      current = current.parentElement;
+    }
+    return '';
+  }
+
   function setupStickyBars() {
     var target = config.scroll_target || 'control_bar';
     var header = document.querySelector('.header');
@@ -32,6 +42,11 @@
 
     document.documentElement.classList.remove('rv-scroll-active', 'rv-sticky-header', 'rv-no-sticky');
     document.documentElement.classList.add('rv-scroll-active');
+
+    if (nav) {
+      var bg = findBackground(nav);
+      if (bg) nav.style.backgroundColor = bg;
+    }
 
     if (target === 'search_bar') {
       // Solution 4: restructure DOM so header stays, content scrolls

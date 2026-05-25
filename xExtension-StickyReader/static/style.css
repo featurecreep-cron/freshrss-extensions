@@ -6,7 +6,6 @@
     position: sticky !important;
     top: 0 !important;
     z-index: 999 !important;
-    background: var(--frss-background-color, #fff) !important;
 }
 
 /* title_row mode: nothing sticky */
@@ -70,7 +69,6 @@
     position: sticky !important;
     top: 0 !important;
     z-index: 999 !important;
-    background: var(--frss-background-color, #fff) !important;
 }
 
 /* GPU-accelerate sticky nav to avoid repaint on scroll */
