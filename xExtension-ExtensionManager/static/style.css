@@ -125,8 +125,8 @@
     display: flex; align-items: center; justify-content: center;
 }
 .ext-mgr-dialog {
-    background: var(--frss-background, #fff);
-    color: var(--frss-color, #333);
+    background: var(--frss-background-color, #fff);
+    color: inherit;
     border-radius: 8px;
     padding: 20px 24px;
     max-width: 520px;
