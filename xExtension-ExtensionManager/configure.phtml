@@ -1,4 +1,4 @@
-<form method="post" action="">
+<form method="post" action="<?= _url('extension', 'configure', 'e', urlencode($this->getName())) ?>">
     <input type="hidden" name="_csrf" value="<?= FreshRSS_Auth::csrfToken() ?>">
 
     <div class="form-group">
