@@ -134,7 +134,7 @@ class ExtensionManagerExtension extends Minz_Extension {
      * Copies the extension source to DATA_PATH/extmgr/queue/{dirName}/
      * and writes a manifest entry.
      */
-    public static function queueInstall(string $tmpDir, string $extDirName): string|true {
+    public static function queueInstall(string $tmpDir, string $extDirName): string|bool {
         $extDirName = basename($extDirName);
 
         if ($extDirName === 'xExtension-ExtensionManager') {
@@ -188,7 +188,7 @@ class ExtensionManagerExtension extends Minz_Extension {
     /**
      * Queue an extension for removal.
      */
-    public static function queueRemove(string $dirName): string|true {
+    public static function queueRemove(string $dirName): string|bool {
         $dirName = basename($dirName);
 
         if ($dirName === 'xExtension-ExtensionManager') {
@@ -401,7 +401,7 @@ class ExtensionManagerExtension extends Minz_Extension {
      * Install a single extension by directory name from an already-extracted repo.
      * Returns true on success, or an error string on failure.
      */
-    public static function installFromExtracted($tmpDir, $extDirName): string|true {
+    public static function installFromExtracted($tmpDir, $extDirName): string|bool {
         // Sanitize: strip any path components
         $extDirName = basename($extDirName);
 
