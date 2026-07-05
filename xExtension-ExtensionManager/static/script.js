@@ -414,6 +414,7 @@
       var extUrl = nameLink.getAttribute('href');
       var extName = nameLink.textContent.trim();
       var catalogVersion = cells[1].textContent.trim();
+      var isGitHub = extUrl && /^https:\/\/github\.com\//.test(extUrl);
 
       // Insert Installed column before Version
       var installedTd = document.createElement('td');
@@ -424,7 +425,7 @@
       var actionTd = document.createElement('td');
 
       if (info) {
-        if (isAdmin && catalogVersion && info.version && compareVersions(catalogVersion, info.version) > 0) {
+        if (isAdmin && isGitHub && catalogVersion && info.version && compareVersions(catalogVersion, info.version) > 0) {
           actionTd.appendChild(makeInstallButton('Update', extUrl, extName, null, null));
         } else {
           var badge = document.createElement('span');
@@ -432,7 +433,7 @@
           badge.textContent = '\u2713 Installed';
           actionTd.appendChild(badge);
         }
-      } else if (isAdmin && extUrl) {
+      } else if (isAdmin && isGitHub) {
         actionTd.appendChild(makeInstallButton('Install', extUrl, extName, null, null));
       }
 
