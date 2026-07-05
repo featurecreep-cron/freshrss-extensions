@@ -261,31 +261,31 @@
     return match ? match[1] : null;
   }
 
-  function sidebarMarkRead(href, makeRead) {
+  function sidebarMarkRead(getParam, makeRead) {
+    var csrfInput = document.querySelector('#mark-read-aside input[name="_csrf"]') ||
+                    document.querySelector('input[name="_csrf"]');
+    var csrf = csrfInput ? csrfInput.value : '';
+
+    var url = './?c=entry&a=read&get=' + encodeURIComponent(getParam);
     if (!makeRead) {
-      showNotification('Bulk unread is not supported by FreshRSS', true);
-      return;
+      url += '&is_read=0';
     }
-    fetch(href, { credentials: 'same-origin' })
-      .then(function (r) { return r.text(); })
-      .then(function (html) {
-        var doc = new DOMParser().parseFromString(html, 'text/html');
-        var markReadLink = doc.querySelector('#mark-read-menu a') ||
-                           doc.querySelector('.mark-as-read') ||
-                           doc.querySelector('a[href*="a=read"]');
-        if (markReadLink) {
-          var markUrl = markReadLink.getAttribute('href');
-          if (markUrl) {
-            return fetch(markUrl.startsWith('http') ? markUrl : new URL(markUrl, window.location.href).href,
-                         { credentials: 'same-origin' });
-          }
-        }
-        showNotification('Could not find mark-read link', true);
-      })
+
+    var body = new URLSearchParams();
+    body.append('_csrf', csrf);
+
+    fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: body.toString(),
+      credentials: 'same-origin',
+    })
       .then(function (r) {
-        if (r && r.ok) {
-          showNotification('Marked all as read');
+        if (r.ok || r.redirected) {
+          showNotification(makeRead ? 'Marked all as read' : 'Marked all as unread');
           window.location.reload();
+        } else {
+          showNotification('Failed (HTTP ' + r.status + ')', true);
         }
       })
       .catch(function (err) { showNotification('Error: ' + err, true); });
@@ -399,16 +399,16 @@
     var item = targetEl.closest('.item');
     var link = item ? (item.querySelector('a.item-title') || targetEl) : targetEl;
     var href = link.getAttribute('href');
+    var feedGet = extractId(href, 'f_');
 
     switch (action) {
       case 'mark_all_read':
-        if (href) sidebarMarkRead(href, true);
+        if (feedGet) sidebarMarkRead('f_' + feedGet, true);
         break;
       case 'mark_all_unread':
-        sidebarMarkRead(null, false);
+        if (feedGet) sidebarMarkRead('f_' + feedGet, false);
         break;
       case 'recently_read':
-        var feedGet = extractId(href, 'f_');
         if (feedGet) {
           window.location.href = './?a=normal&state=1&sort=lastUserModified&order=DESC&get=f_' + feedGet;
         }
@@ -424,16 +424,16 @@
     if (!targetEl) return;
     var el = targetEl.closest('.tree-folder-title') || targetEl.closest('a') || targetEl;
     var href = el.getAttribute('href');
+    var catGet = extractId(href, 'c_');
 
     switch (action) {
       case 'mark_all_read':
-        if (href) sidebarMarkRead(href, true);
+        if (catGet) sidebarMarkRead('c_' + catGet, true);
         break;
       case 'mark_all_unread':
-        sidebarMarkRead(null, false);
+        if (catGet) sidebarMarkRead('c_' + catGet, false);
         break;
       case 'recently_read':
-        var catGet = extractId(href, 'c_');
         if (catGet) {
           window.location.href = './?a=normal&state=1&sort=lastUserModified&order=DESC&get=c_' + catGet;
         }
