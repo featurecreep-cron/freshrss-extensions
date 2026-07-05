@@ -64,7 +64,7 @@ The extensions directory is typically at:
 
 ## Configuration
 
-Each extension has its own settings page in FreshRSS (Extensions → Configure). No global configuration file needed.
+Each extension has its own settings page in FreshRSS (Configuration → Extensions). No global configuration file needed.
 
 ## Contributing
 
