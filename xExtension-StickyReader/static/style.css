@@ -114,8 +114,7 @@
 
 /* ===== Flat article headers (strip decorative hover/active backgrounds) ===== */
 /* Preserve .not_read and .favorite fill colors — only strip hover/active/current decorations */
-.rv-scroll-active .flux .flux_header:hover { background-color: transparent !important; }
-.rv-scroll-active .flux:not(.not_read):not(.favorite):not(.current):hover .flux_header { background-color: transparent !important; }
+.rv-scroll-active .flux:not(.not_read):not(.favorite):hover .flux_header { background-color: transparent !important; }
 .rv-scroll-active .flux.current:not(.not_read):not(.favorite) .flux_header { background-color: transparent !important; }
 
 /* Hide subscription management bar */
