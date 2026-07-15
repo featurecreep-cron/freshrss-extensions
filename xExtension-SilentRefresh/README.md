@@ -10,6 +10,11 @@ Updates unread counts in the background without interrupting your reading.
 - Updates the browser tab title with the current unread count
 - No page reload -- counts update in place
 - Configurable polling interval (1-60 minutes)
+- Pauses polling while the tab is hidden; refreshes immediately when you return
+- Stops polling when the session expires (FreshRSS login redirect, or a bare
+  401/403 from a fronting auth proxy) and reloads once to re-authenticate -- a
+  stale background tab never streams failed requests at your server or trips a
+  fail2ban-style jail
 
 ## Installation
 

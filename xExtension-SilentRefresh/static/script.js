@@ -5,6 +5,9 @@
   var updatingTitle = false;
   var titleUpdatePending = false;
   var MAX_INIT_RETRIES = 100;
+  // Two CONSECUTIVE failures = dead session, not a blip — and it stays safely
+  // under fail2ban-style thresholds (default maxretry 5, paranoid floor 3).
+  var MAX_AUTH_FAILURES = 2;
 
   function getConfig() {
     if (typeof context !== 'undefined' && context.extensions && context.extensions['Silent Refresh']) {
@@ -44,8 +47,26 @@
   }
 
   var intervalId = null;
+  var authFailures = 0;
+
+  // Stop polling and hand the tab to the auth flow. A fetch cannot complete an
+  // interactive login or an auth-portal redirect, so a full navigation is the
+  // only re-auth mechanism. If the session is recoverable the reload
+  // re-authenticates transparently and polling resumes on re-init; if not, the
+  // tab lands on the login page and the poller is gone with it.
+  function stopAndReauth() {
+    if (intervalId) {
+      clearInterval(intervalId);
+      intervalId = null;
+    }
+    window.location.reload();
+  }
 
   function refreshSidebar(config) {
+    // A hidden tab must never poll: an unattended tab with an expired session
+    // otherwise accumulates 401s until fail2ban-style jails ban the client IP.
+    if (document.hidden) return;
+
     // Use FreshRSS's lightweight JSON endpoint (~400 bytes vs ~200KB HTML)
     fetch('./?c=javascript&a=nbUnreadsPerFeed', {
       credentials: 'same-origin',
@@ -55,18 +76,25 @@
         // redirect: 'manual' turns redirects into opaque responses (type 'opaqueredirect', status 0)
         // This catches auth expiry — FreshRSS redirects to login when session dies
         if (r.type === 'opaqueredirect' || r.status === 0) {
-          if (intervalId) clearInterval(intervalId);
-          window.location.reload();
+          stopAndReauth();
+          return null;
+        }
+        // A fronting auth layer (proxy/SSO) answers with a bare 401/403 instead
+        // of FreshRSS's redirect; a single one may be a transient portal
+        // bounce, so it only counts toward MAX_AUTH_FAILURES.
+        if (r.status === 401 || r.status === 403) {
+          authFailures += 1;
+          if (authFailures >= MAX_AUTH_FAILURES) stopAndReauth();
           return null;
         }
         if (!r.ok) return null;
         var contentType = r.headers.get('content-type') || '';
         if (contentType.indexOf('json') === -1) {
           // Got HTML instead of JSON — session expired
-          if (intervalId) clearInterval(intervalId);
-          window.location.reload();
+          stopAndReauth();
           return null;
         }
+        authFailures = 0;
         return r.json();
       })
       .then(function (data) {
@@ -143,6 +171,12 @@
     }
 
     intervalId = setInterval(function () { refreshSidebar(config); }, intervalMs);
+
+    // Hidden ticks are skipped, so refresh immediately on return to the tab —
+    // the badge is only ever stale while nobody can see it.
+    document.addEventListener('visibilitychange', function () {
+      if (!document.hidden && intervalId) refreshSidebar(config);
+    });
   }
 
   if (document.readyState === 'loading') {
