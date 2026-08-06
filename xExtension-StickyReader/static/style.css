@@ -81,6 +81,30 @@
     contain: layout style !important;
 }
 
+/* ...except the one article whose dropdown is open.
+ *
+ * `contain: layout` makes each article a stacking context, and a stacking
+ * context traps z-index. FreshRSS's topline dropdowns (My labels, Sharing)
+ * rely on `z-index: 1000` to paint over the articles below them, so once that
+ * index is resolved inside a single article row instead of against the page,
+ * the part of the menu that overflows a collapsed row is painted underneath
+ * the next article. Measured: the menu renders at full height and hangs ~70px
+ * past the row, and the topmost element inside that overflow is the following
+ * article's <time>. It is occluded, not clipped.
+ *
+ * Releasing containment for the open article only — never more than one at a
+ * time, since :target matches a single fragment — keeps the optimisation for
+ * every other row. Do not "simplify" this by deleting the rule above; layout
+ * containment is what scopes recalc on long lists, which is the point of the
+ * extension. Dropping to `contain: style` would fix the symptom by abandoning
+ * that.
+ *
+ * Reported as #14 (share menu) and #15 (label menu), which are one defect.
+ */
+.rv-scroll-active .flux:has(.dropdown-target:target) {
+    contain: none !important;
+}
+
 /* ===== Nav flex layout (all modes) ===== */
 .rv-scroll-active .nav_menu {
     display: flex !important;
