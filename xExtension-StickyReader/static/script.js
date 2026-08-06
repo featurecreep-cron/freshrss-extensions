@@ -9,17 +9,27 @@
   var scrollPadding = 0;
   var scrollContainer = null; // window or #rv-content
 
-  function getScrollContainer() {
-    return scrollContainer || window;
+  // restructureLayout() creates #rv-content at every viewport width, but the CSS
+  // that makes it a scrolling column is gated behind FreshRSS's 841px breakpoint
+  // (see style.css). Below that the div is an inert wrapper and the page scrolls
+  // on the window as usual, so decide by whether it actually scrolls rather than
+  // by whether it exists — otherwise scroll anchoring silently drives an element
+  // with nowhere to go.
+  function activeScrollContainer() {
+    if (scrollContainer && scrollContainer.scrollHeight > scrollContainer.clientHeight) {
+      return scrollContainer;
+    }
+    return null;
   }
 
   function getScrollTop() {
-    if (scrollContainer) return scrollContainer.scrollTop;
-    return window.scrollY;
+    var container = activeScrollContainer();
+    return container ? container.scrollTop : window.scrollY;
   }
 
   function doScrollBy(delta) {
-    if (scrollContainer) scrollContainer.scrollBy({ top: delta, behavior: 'instant' });
+    var container = activeScrollContainer();
+    if (container) container.scrollBy({ top: delta, behavior: 'instant' });
     else window.scrollBy({ top: delta, behavior: 'instant' });
   }
 
@@ -95,7 +105,8 @@
     var currentTop = header.getBoundingClientRect().top;
     // In restructured layout, the content area starts at the top of #rv-content
     // scrollPadding = height of sticky nav within the content
-    var contentTop = scrollContainer ? scrollContainer.getBoundingClientRect().top : 0;
+    var container = activeScrollContainer();
+    var contentTop = container ? container.getBoundingClientRect().top : 0;
     var targetTop = contentTop + scrollPadding;
     var delta = currentTop - targetTop;
     if (Math.abs(delta) > 2) {

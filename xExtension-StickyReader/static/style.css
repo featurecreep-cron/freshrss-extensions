@@ -13,62 +13,82 @@
     position: static !important;
 }
 
-/* ===== search_bar mode: restructured layout ===== */
-/* Header stays at top, #global becomes flex row, content scrolls independently */
-.rv-scroll-active.rv-sticky-header {
-    height: 100% !important;
-    overflow: hidden !important;
-}
+/* ===== search_bar mode: restructured layout =====
+ *
+ * Desktop only. Below 840px FreshRSS turns .aside into a collapsed navigation
+ * drawer — `position: fixed; left: -1px; width: 0; z-index: 100` — that opens
+ * only when `.visible` is added. The rules below used to apply at every width,
+ * and because they override `width` but never `position`, the drawer became a
+ * permanently-open 301px panel pinned over the page: it covered the left of the
+ * toolbar and the article list, which read as "the toolbar moved right" when in
+ * fact the toolbar had not moved at all.
+ *
+ * Measured on FreshRSS 1.29.x / theme Origine: `.aside` position flips
+ * fixed → static → fixed at viewport widths 737 / 1292 / 580 while its width
+ * stays 284.323px throughout. Both halves of the mechanism.
+ *
+ * 841px is FreshRSS's own breakpoint (max-width: 840px), not one of ours. If
+ * upstream moves theirs, this has to move with it.
+ *
+ * Reported as the first half of #14.
+ */
+@media (min-width: 841px) {
+    /* Header stays at top, #global becomes flex row, content scrolls independently */
+    .rv-scroll-active.rv-sticky-header {
+        height: 100% !important;
+        overflow: hidden !important;
+    }
 
-.rv-scroll-active.rv-sticky-header body {
-    height: 100% !important;
-    overflow: hidden !important;
-    display: flex !important;
-    flex-direction: column !important;
-    margin: 0 !important;
-}
+    .rv-scroll-active.rv-sticky-header body {
+        height: 100% !important;
+        overflow: hidden !important;
+        display: flex !important;
+        flex-direction: column !important;
+        margin: 0 !important;
+    }
 
-.rv-scroll-active.rv-sticky-header .header {
-    flex: 0 0 auto !important;
-    width: 100% !important;
-}
+    .rv-scroll-active.rv-sticky-header .header {
+        flex: 0 0 auto !important;
+        width: 100% !important;
+    }
 
-.rv-scroll-active.rv-sticky-header #global {
-    flex: 1 1 auto !important;
-    display: flex !important;
-    flex-direction: row !important;
-    overflow: hidden !important;
-    min-height: 0 !important;
-}
+    .rv-scroll-active.rv-sticky-header #global {
+        flex: 1 1 auto !important;
+        display: flex !important;
+        flex-direction: row !important;
+        overflow: hidden !important;
+        min-height: 0 !important;
+    }
 
-.rv-scroll-active.rv-sticky-header .aside {
-    display: block !important;
-    width: 301px !important;
-    flex-shrink: 0 !important;
-    overflow-y: auto !important;
-    will-change: scroll-position !important;
-    -webkit-overflow-scrolling: touch !important;
-    contain: strict !important;
-}
+    .rv-scroll-active.rv-sticky-header .aside {
+        display: block !important;
+        width: 301px !important;
+        flex-shrink: 0 !important;
+        overflow-y: auto !important;
+        will-change: scroll-position !important;
+        -webkit-overflow-scrolling: touch !important;
+        contain: strict !important;
+    }
 
-/* Remove inner tree scroll — aside itself is the scroll container now */
-.rv-scroll-active.rv-sticky-header .aside .tree {
-    max-height: none !important;
-    overflow-y: visible !important;
-}
+    /* Remove inner tree scroll — aside itself is the scroll container now */
+    .rv-scroll-active.rv-sticky-header .aside .tree {
+        max-height: none !important;
+        overflow-y: visible !important;
+    }
 
-.rv-scroll-active.rv-sticky-header #rv-content {
-    flex: 1 1 auto !important;
-    overflow-y: auto !important;
-    min-width: 0 !important;
-    will-change: scroll-position !important;
-    -webkit-overflow-scrolling: touch !important;
-}
+    .rv-scroll-active.rv-sticky-header #rv-content {
+        flex: 1 1 auto !important;
+        overflow-y: auto !important;
+        min-width: 0 !important;
+        will-change: scroll-position !important;
+        -webkit-overflow-scrolling: touch !important;
+    }
 
-.rv-scroll-active.rv-sticky-header #rv-content .nav_menu {
-    position: sticky !important;
-    top: 0 !important;
-    z-index: 999 !important;
+    .rv-scroll-active.rv-sticky-header #rv-content .nav_menu {
+        position: sticky !important;
+        top: 0 !important;
+        z-index: 999 !important;
+    }
 }
 
 /* GPU-accelerate sticky nav to avoid repaint on scroll */
