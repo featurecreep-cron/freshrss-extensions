@@ -30,10 +30,15 @@ class StickyReaderExtension extends Minz_Extension {
             $config = [];
             foreach (array_keys(self::DEFAULTS) as $key) {
                 if ($key === 'scroll_target') {
-                    $val = Minz_Request::param($key, 'control_bar');
+                    // paramString() returns '' when absent, which is not in
+                    // SCROLL_TARGETS, so the guard below supplies the default.
+                    $val = Minz_Request::paramString($key);
                     $config[$key] = in_array($val, self::SCROLL_TARGETS, true) ? $val : 'control_bar';
                 } else {
-                    $config[$key] = Minz_Request::param($key) === '1';
+                    // The form posts a hidden '0' before each checkbox's '1',
+                    // and paramBoolean() reads both — same result as the old
+                    // `=== '1'`, without the deprecated untyped accessor.
+                    $config[$key] = Minz_Request::paramBoolean($key);
                 }
             }
             $this->setUserConfiguration($config);
