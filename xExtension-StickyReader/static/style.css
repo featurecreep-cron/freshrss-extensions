@@ -125,11 +125,29 @@
     contain: none !important;
 }
 
-/* ===== Nav flex layout (all modes) ===== */
-.rv-scroll-active .nav_menu {
+/* ===== Nav flex layout — only when we have inserted a feed name =====
+ *
+ * Gated on .rv-has-feed-name, set by initTitleBar(). This block used to key on
+ * .rv-scroll-active alone, so it applied whenever scroll anchoring was on, even
+ * with the feed name switched off. Two things followed from that:
+ *
+ *   1. FreshRSS centres the toolbar with `text-align: center` on .nav_menu, and
+ *      text-align does not position flex items. Forcing display:flex therefore
+ *      silently replaced centred with left-aligned for anyone who wanted sticky
+ *      scrolling but no feed name.
+ *   2. Stock .group is inline-flex inside a block, so groups wrap onto another
+ *      row when the window is too narrow. flex-wrap: nowrap removed that, and
+ *      because .group is also flex-shrink: 0, nothing could wrap OR shrink —
+ *      controls simply became unreachable instead of overflowing.
+ *
+ * So: no feed name, no restructuring — stock centred layout is left alone.
+ * With a feed name, flex gives us name-left/controls-right via .rv-spacer, and
+ * wrap keeps the stock overflow behaviour.
+ */
+.rv-scroll-active.rv-has-feed-name .nav_menu {
     display: flex !important;
     align-items: center !important;
-    flex-wrap: nowrap !important;
+    flex-wrap: wrap !important;
 }
 
 /* Feed/category name in toolbar */
@@ -151,8 +169,10 @@
     min-width: 0 !important;
 }
 
-/* Prevent control groups from shrinking */
-.rv-scroll-active .nav_menu .group {
+/* Keep control groups at their natural size so they wrap rather than squash.
+   Scoped to the same class as the flex block — without it these are stock
+   inline-flex elements and must not be given flex-item properties. */
+.rv-scroll-active.rv-has-feed-name .nav_menu .group {
     flex-shrink: 0 !important;
 }
 

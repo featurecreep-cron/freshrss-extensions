@@ -168,6 +168,11 @@
     var navMenu = document.querySelector('.nav_menu');
     if (!navMenu) return;
 
+    // Tells the stylesheet it may restructure the toolbar into a flex row.
+    // Without a feed name there is nothing to align against, so the nav is left
+    // as FreshRSS renders it — centred, and free to wrap when space runs out.
+    document.documentElement.classList.add('rv-has-feed-name');
+
     feedNameEl = document.createElement('div');
     feedNameEl.className = 'rv-feed-name';
 
