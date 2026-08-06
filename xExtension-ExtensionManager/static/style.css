@@ -177,3 +177,22 @@
     font-size: 0.9em;
     opacity: 0.8;
 }
+
+/* Branch badge — distinguishes two sources that differ only by branch, and
+   flags when the installed copy came from a branch other than this table's. */
+.ext-mgr-branch {
+    display: inline-block;
+    padding: 0.05em 0.45em;
+    border: 1px solid currentColor;
+    border-radius: 0.75em;
+    font-size: 0.75em;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    vertical-align: middle;
+    opacity: 0.8;
+}
+
+.ext-mgr-branch-other {
+    font-weight: 500;
+    opacity: 0.65;
+}

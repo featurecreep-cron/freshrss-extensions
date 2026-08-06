@@ -35,14 +35,20 @@ final class FreshExtension_extmgr_Controller extends Minz_ActionController {
                 $this->sendJson(['error' => 'Catalog session expired. Refresh the page and try again.'], 400);
             }
 
+            // Where this catalog was fetched from, so the install can be labelled
+            // with its branch afterwards.
+            $entry = ExtensionManagerExtension::getCatalogEntry($catalogToken);
+            $srcUrl = $entry['url'] ?? null;
+            $srcBranch = $entry['branch'] ?? null;
+
             if (ExtensionManagerExtension::extensionsWritable()) {
-                $result = ExtensionManagerExtension::installFromExtracted($tmpDir, $dir);
+                $result = ExtensionManagerExtension::installFromExtracted($tmpDir, $dir, $srcUrl, $srcBranch);
                 if ($result === true) {
                     $this->sendJson(['success' => true, 'message' => $dir . ' installed successfully']);
                 }
                 $this->sendJson(['error' => is_string($result) ? $result : 'Unknown error'], 500);
             } else {
-                $result = ExtensionManagerExtension::queueInstall($tmpDir, $dir);
+                $result = ExtensionManagerExtension::queueInstall($tmpDir, $dir, $srcUrl, $srcBranch);
                 if ($result === true) {
                     $this->sendJson([
                         'success' => true,
