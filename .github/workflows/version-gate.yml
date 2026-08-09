@@ -1,0 +1,33 @@
+name: Version Gate
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, labeled, unlabeled]
+
+permissions:
+  contents: read
+
+jobs:
+  version-bump:
+    name: Extension version bumped
+    runs-on: ubuntu-latest
+    # Existing installs only see an update when the catalog version compares
+    # greater than theirs, so shipping extension code without a metadata.json
+    # bump means the fix never reaches anyone who already has the extension.
+    if: ${{ !contains(github.event.pull_request.labels.*.name, 'no-version-bump') }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      # Run from the repository root: git's diff and ls-tree output is
+      # cwd-relative, and the scripts expect repo-root-relative paths.
+      # Both parents of the merge ref are already in the fetched history, so
+      # use the event's own SHAs rather than an origin/<branch> ref that
+      # actions/checkout does not necessarily create.
+      - name: Check for version bumps
+        run: |
+          python3 .github/scripts/version_gate.py \
+            "${{ github.event.pull_request.base.sha }}" \
+            "${{ github.event.pull_request.head.sha }}"
