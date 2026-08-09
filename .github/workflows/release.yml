@@ -1,0 +1,42 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: ~
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Tag and publish
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      # The tag is derived from the extension versions rather than remembered:
+      # if no metadata.json version increased since the last tag, nothing
+      # shipped to users and no release is cut.
+      - name: Plan the release
+        id: plan
+        run: python3 .github/scripts/plan_release.py
+
+      - name: Tag and publish
+        if: steps.plan.outputs.release == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.plan.outputs.tag }}
+          NOTES: ${{ steps.plan.outputs.notes_file }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "$TAG" -m "$TAG"
+          git push origin "$TAG"
+          gh release create "$TAG" --title "$TAG" --notes-file "$NOTES"
