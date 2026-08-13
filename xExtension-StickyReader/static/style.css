@@ -91,6 +91,35 @@
     }
 }
 
+/* ===== Trailing space, so any article can reach the top =====
+ *
+ * Scroll anchoring puts the opened article's header at the top of the scrolling
+ * area. That only works while enough content remains below it to scroll; near
+ * the end of a list the scroll clamps at its maximum and the article settles
+ * wherever the leftover height allows, with dead space under it. Nothing about
+ * this is specific to `k` — `j`, `p`, `n` and clicking a header all end the same
+ * way once the remaining articles are shorter than the viewport, which is why a
+ * short list shows it immediately and a long one only at the bottom.
+ *
+ * Measured on a live FreshRSS 1.29.x instance, 11-article list, 1700x960,
+ * search_bar mode, target position 77px. Without trailing space five of ten
+ * openings landed at 135, 223, 257, 266 and 342px, each with scrollTop already
+ * equal to scrollHeight - clientHeight. With this rule, all twenty openings —
+ * ten with `j`, ten back with `k` — landed at 76-77px.
+ *
+ * One viewport is always sufficient: the worst case is a zero-height article
+ * last in the list, which needs exactly the viewport height behind it. The
+ * space is only reachable by scrolling past the final article, so it costs
+ * nothing until you are there, and `#stream` is the last child of the scrolling
+ * element in both arrangements — of #rv-content in the restructured search_bar
+ * layout, and of the page itself in every other mode.
+ *
+ * Reported as #18.
+ */
+.rv-scroll-active #stream {
+    padding-bottom: 100vh !important;
+}
+
 /* GPU-accelerate sticky nav to avoid repaint on scroll */
 .rv-scroll-active .nav_menu {
     transform: translateZ(0) !important;
