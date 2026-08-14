@@ -16,6 +16,7 @@ class RightClickActionsExtension extends Minz_Extension {
                 'mark_older' => true,
                 'mark_newer' => true,
                 'filter_title' => true,
+                'filter_star' => true,
                 'filter_feed' => true,
             ],
             'body' => [
@@ -25,6 +26,7 @@ class RightClickActionsExtension extends Minz_Extension {
                 'mark_older' => false,
                 'mark_newer' => false,
                 'filter_title' => false,
+                'filter_star' => false,
                 'filter_feed' => false,
             ],
             'sidebar_feed' => [
@@ -65,8 +67,13 @@ class RightClickActionsExtension extends Minz_Extension {
         if (Minz_Request::isPost()) {
             $config = self::DEFAULTS;
 
+            // The form posts a hidden '0' before each checkbox's '1', and
+            // paramBoolean() reads both — same result as the old `=== '1'`,
+            // without Minz_Request::param(), which FreshRSS 1.29 deprecated and
+            // which emits a notice on every save (the defect reported against
+            // Sticky Reader in #14).
             foreach (array_keys($config['zones']) as $zone) {
-                $config['zones'][$zone] = Minz_Request::param('zone_' . $zone) === '1';
+                $config['zones'][$zone] = Minz_Request::paramBoolean('zone_' . $zone);
             }
 
             foreach ($config['actions'] as $zone => $actions) {
@@ -75,7 +82,7 @@ class RightClickActionsExtension extends Minz_Extension {
                     if (!$config['zones'][$zone]) {
                         $config['actions'][$zone][$action] = false;
                     } else {
-                        $config['actions'][$zone][$action] = Minz_Request::param('action_' . $zone . '_' . $action) === '1';
+                        $config['actions'][$zone][$action] = Minz_Request::paramBoolean('action_' . $zone . '_' . $action);
                     }
                 }
             }
