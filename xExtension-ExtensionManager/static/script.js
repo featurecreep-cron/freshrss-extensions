@@ -6,6 +6,7 @@
   var isAdmin = false;
   var isWritable = false;
   var queued = {};
+  var pendingSelf = null;
 
   var _initRetries = 0;
   function init() {
@@ -22,6 +23,7 @@
     isAdmin = !!extConfig.configuration.is_admin;
     isWritable = !!extConfig.configuration.writable;
     queued = extConfig.configuration.queued || {};
+    pendingSelf = extConfig.configuration.pendingSelf || null;
 
     if (!isExtensionsPage()) return;
 
@@ -533,10 +535,7 @@
       var tdAction = document.createElement('td');
 
       if (ext.dir === 'xExtension-ExtensionManager') {
-        var selfBadge = document.createElement('span');
-        selfBadge.className = 'ext-mgr-installed-badge';
-        selfBadge.textContent = '(self)';
-        tdAction.appendChild(selfBadge);
+        tdAction.appendChild(selfAction(ext, info, catalogToken));
       } else if (info) {
         // Only one copy can be installed, so a section whose source is not the
         // one the installed copy came from offers a switch rather than an
@@ -573,6 +572,90 @@
     return table;
   }
 
+  // Extension Manager cannot copy over itself while it is the code serving the
+  // request, so its update is two named steps: Download update fetches and
+  // verifies a copy alongside the running one, Apply update swaps them at the
+  // start of the next request. Each button says what it does; neither of them
+  // is a reload, even though applying ends in one.
+  function selfAction(ext, info, catalogToken) {
+    if (pendingSelf) {
+      var wrap = document.createElement('span');
+      wrap.className = 'ext-mgr-self-pending';
+      wrap.appendChild(makeApplyButton(pendingSelf.version));
+      var note = document.createElement('span');
+      note.className = 'ext-mgr-staged-note';
+      note.textContent = (pendingSelf.version || 'staged') +
+        (pendingSelf.branch ? ' from ' + pendingSelf.branch : '') + ' verified';
+      wrap.appendChild(note);
+      // Staging is reversible and should look it — without this the only way
+      // out of a staged copy you have changed your mind about is deleting the
+      // directory by hand.
+      wrap.appendChild(makeDiscardButton());
+      return wrap;
+    }
+
+    var newer = info && compareVersions(String(ext.version), info.version) > 0;
+    if (isAdmin && isWritable && newer) {
+      return makeInstallButton('Download update', null, ext.name, ext.dir, catalogToken);
+    }
+
+    var badge = document.createElement('span');
+    badge.className = 'ext-mgr-installed-badge';
+    // Without a writable extensions directory the swap cannot happen at all,
+    // and saying "(self)" would hide the reason.
+    badge.textContent = newer && !isWritable ? 'update available — run install-queued.sh' : '(self)';
+    return badge;
+  }
+
+  function makeApplyButton(version) {
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'ext-mgr-btn ext-mgr-switch';
+    btn.textContent = 'Apply update';
+    btn.title = version ? 'Replace the running Extension Manager with the verified ' + version + ' copy' : '';
+    btn.addEventListener('click', function () {
+      btn.disabled = true;
+      btn.textContent = 'Applying...';
+      apiCall('applyself', {}).then(function (data) {
+        if (data.success) {
+          window.location.reload();
+        } else {
+          btn.disabled = false;
+          btn.textContent = 'Apply update';
+          showNotification(data.error || 'Could not apply the update', true);
+        }
+      }).catch(function (err) {
+        btn.disabled = false;
+        btn.textContent = 'Apply update';
+        showNotification('Error: ' + err.message, true);
+      });
+    });
+    return btn;
+  }
+
+  function makeDiscardButton() {
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'ext-mgr-discard';
+    btn.textContent = 'Discard';
+    btn.title = 'Delete the staged copy; the running version is not touched';
+    btn.addEventListener('click', function () {
+      btn.disabled = true;
+      apiCall('discardself', {}).then(function (data) {
+        if (data.success) {
+          window.location.reload();
+        } else {
+          btn.disabled = false;
+          showNotification(data.error || 'Could not discard the staged copy', true);
+        }
+      }).catch(function (err) {
+        btn.disabled = false;
+        showNotification('Error: ' + err.message, true);
+      });
+    });
+    return btn;
+  }
+
   function makeInstallButton(label, extUrl, extName, extDir, catalogToken) {
     var isSwitch = label.indexOf('Switch') === 0;
     var variant = label === 'Update' ? 'ext-mgr-update' : (isSwitch ? 'ext-mgr-switch' : 'ext-mgr-install');
@@ -600,6 +683,13 @@
             // Update queued state and show banner if not already visible
             queued[extDir || extName] = { name: extName, action: 'install' };
             refreshQueuedBanner();
+          } else if (data.staged) {
+            // Downloaded and verified, nothing replaced yet \u2014 the reload brings
+            // back the row with an Apply update button.
+            btn.textContent = 'Downloaded';
+            btn.className = 'ext-mgr-btn ext-mgr-done';
+            showNotification(data.message || (extName + ' downloaded and verified \u2014 apply it to finish'));
+            setTimeout(function () { window.location.reload(); }, 1200);
           } else {
             btn.textContent = '\u2713 Done';
             btn.className = 'ext-mgr-btn ext-mgr-done';

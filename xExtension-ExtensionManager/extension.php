@@ -24,7 +24,325 @@ class ExtensionManagerExtension extends Minz_Extension {
         return is_writable(dirname(dirname(__FILE__)));
     }
 
+    /* ===================== Self-update =====================
+     *
+     * Minz finds extensions by scanning every directory under the extensions
+     * path and loading any that carry a valid metadata.json — the directory
+     * name is not part of the test (lib/Minz/ExtensionManager.php). So two
+     * directories holding this extension's metadata means extension.php is
+     * included twice, ExtensionManagerExtension is declared twice, and the
+     * fatal takes down all of FreshRSS rather than just this page. The same
+     * scan is why the old in-place install refused to touch this extension:
+     * a recursive copy has an observable half-written state, and every request
+     * boots through this file.
+     *
+     * Everything below is arranged so neither can happen. A staged tree keeps
+     * its manifest as metadata.json.pending and so is invisible to discovery;
+     * the version being replaced has its manifest renamed away before the new
+     * one is put in place. Activation is renames only — never a copy — and the
+     * failure modes are all "Extension Manager is briefly missing", which
+     * FreshRSS survives, and which the next request repairs.
+     */
+    private const SELF_DIR = 'xExtension-ExtensionManager';
+    private const STAGE_DIR = '.extmgr-staged';
+    private const ROLLBACK_PREFIX = '.extmgr-rollback-';
+    private const PENDING_MANIFEST = 'metadata.json.pending';
+    private const DISABLED_MANIFEST = 'metadata.json.disabled';
+    private const PENDING_RECORD = '.pending.json';
+
+    private static function extensionsPath(): string {
+        return dirname(dirname(__FILE__));
+    }
+
+    /** The directory this file is running from, rather than a composed name, so a renamed install still works. */
+    private static function selfPath(): string {
+        return dirname(__FILE__);
+    }
+
+    private static function stagePath(): string {
+        return self::extensionsPath() . '/' . self::STAGE_DIR;
+    }
+
+    public static function isSelfDir(string $extDirName): bool {
+        return basename($extDirName) === self::SELF_DIR;
+    }
+
+    /**
+     * Everything that must hold before a staged tree is allowed to replace the
+     * running one. A bad payload here is not a failed update, it is a FreshRSS
+     * that will not boot, so this refuses on anything it cannot confirm.
+     */
+    public static function verifyStagedTree(string $dir): ?string {
+        $manifestPath = $dir . '/' . self::PENDING_MANIFEST;
+        if (!is_file($manifestPath)) {
+            return 'staged copy has no manifest';
+        }
+        $meta = json_decode((string) file_get_contents($manifestPath), true);
+        if (!is_array($meta)) {
+            return 'staged manifest is not valid JSON';
+        }
+        foreach (['name', 'entrypoint', 'version'] as $key) {
+            if (!isset($meta[$key]) || !is_string($meta[$key]) || $meta[$key] === '') {
+                return 'staged manifest is missing "' . $key . '"';
+            }
+        }
+        if ($meta['entrypoint'] !== 'ExtensionManager') {
+            return 'staged manifest entrypoint is "' . $meta['entrypoint'] . '", expected ExtensionManager';
+        }
+        if (!is_file($dir . '/extension.php')) {
+            return 'staged copy has no extension.php';
+        }
+        // Minz derives the class name from the entrypoint and warns if it is
+        // absent; absent here means the swap produces an extension that loads
+        // and then does nothing.
+        if (strpos((string) file_get_contents($dir . '/extension.php'), 'class ExtensionManagerExtension') === false) {
+            return 'staged extension.php does not declare ExtensionManagerExtension';
+        }
+        foreach (['Controllers', 'static', 'views'] as $sub) {
+            if (!is_dir($dir . '/' . $sub)) {
+                return 'staged copy is missing ' . $sub . '/';
+            }
+        }
+        return self::firstSyntaxError($dir);
+    }
+
+    /**
+     * Parse every PHP file without running any of it. token_get_all() with
+     * TOKEN_PARSE raises ParseError on invalid syntax, which is the check that
+     * makes self-update defensible: a truncated download or a bad commit is
+     * caught here rather than at the next request's include.
+     */
+    private static function firstSyntaxError(string $dir): ?string {
+        $walker = new RecursiveIteratorIterator(
+            new RecursiveDirectoryIterator($dir, FilesystemIterator::SKIP_DOTS)
+        );
+        foreach ($walker as $file) {
+            if (!$file->isFile() || strtolower($file->getExtension()) !== 'php') {
+                continue;
+            }
+            $src = file_get_contents($file->getPathname());
+            if ($src === false) {
+                return 'cannot read ' . $file->getFilename();
+            }
+            try {
+                token_get_all($src, TOKEN_PARSE);
+            } catch (ParseError $e) {
+                return 'syntax error in ' . $file->getFilename() . ' — ' . $e->getMessage();
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Step 1. Build the new version alongside the running one and verify it.
+     * Nothing about the live install changes here, and a staged tree that is
+     * never applied is inert.
+     */
+    public static function stageSelfUpdate(string $tmpDir, string $extDirName, ?string $url = null, ?string $branch = null): string|bool {
+        if (!self::extensionsWritable()) {
+            return 'Extensions directory is not writable — use the queued install script.';
+        }
+        $sourceDir = self::findSourceInExtracted($tmpDir, $extDirName);
+        if ($sourceDir === null) {
+            return 'Extension Manager not found in the downloaded archive';
+        }
+        if (!is_file($sourceDir . '/metadata.json')) {
+            return 'Downloaded copy has no metadata.json';
+        }
+
+        // Assemble under a scratch name and publish with a single rename, so a
+        // directory named .extmgr-staged never exists half-copied.
+        $scratch = self::stagePath() . '.incoming';
+        self::recursiveDelete($scratch);
+        self::recursiveDelete(self::stagePath());
+        self::recursiveCopy($sourceDir, $scratch);
+
+        // Withhold the manifest before anything else: from this point the tree
+        // is on disk but cannot be discovered as a second copy of us.
+        if (!@rename($scratch . '/metadata.json', $scratch . '/' . self::PENDING_MANIFEST)) {
+            self::recursiveDelete($scratch);
+            return 'Could not withhold the staged manifest';
+        }
+        self::writeSourceMarker($scratch, $url, $branch);
+
+        $error = self::verifyStagedTree($scratch);
+        if ($error !== null) {
+            self::recursiveDelete($scratch);
+            return 'Refused to stage: ' . $error;
+        }
+
+        $meta = json_decode((string) file_get_contents($scratch . '/' . self::PENDING_MANIFEST), true);
+        @file_put_contents($scratch . '/' . self::PENDING_RECORD, json_encode([
+            'version' => is_array($meta) ? ($meta['version'] ?? '?') : '?',
+            'source' => $url,
+            'branch' => $branch,
+            'staged_at' => date('c'),
+            'apply' => false,
+        ]));
+
+        if (!@rename($scratch, self::stagePath())) {
+            self::recursiveDelete($scratch);
+            return 'Could not publish the staged copy';
+        }
+        self::pruneRollbacks();
+        return true;
+    }
+
+    public static function pendingSelfUpdate(): ?array {
+        $record = self::stagePath() . '/' . self::PENDING_RECORD;
+        if (!is_file($record)) {
+            return null;
+        }
+        $data = json_decode((string) file_get_contents($record), true);
+        return is_array($data) ? $data : null;
+    }
+
+    public static function discardSelfUpdate(): bool {
+        self::recursiveDelete(self::stagePath());
+        return !is_dir(self::stagePath());
+    }
+
+    /**
+     * Step 2a. Arm the staged copy. Kept separate from activation so that
+     * merely navigating never swaps the code out from under you — a staged
+     * update sits untouched until it is asked for.
+     */
+    public static function requestSelfActivation(): string|bool {
+        $pending = self::pendingSelfUpdate();
+        if ($pending === null) {
+            return 'Nothing is staged';
+        }
+        $error = self::verifyStagedTree(self::stagePath());
+        if ($error !== null) {
+            self::discardSelfUpdate();
+            return 'Staged copy failed verification and was discarded: ' . $error;
+        }
+        $pending['apply'] = true;
+        if (@file_put_contents(self::stagePath() . '/' . self::PENDING_RECORD, json_encode($pending)) === false) {
+            return 'Could not arm the staged copy';
+        }
+        return true;
+    }
+
+    /** Rollback copies are inert (their manifest is renamed away); keep the most recent one only. */
+    private static function pruneRollbacks(int $keep = 1): void {
+        $entries = @scandir(self::extensionsPath()) ?: [];
+        $rollbacks = array_values(array_filter($entries, fn($e) => strpos($e, self::ROLLBACK_PREFIX) === 0));
+        sort($rollbacks);
+        foreach (array_slice($rollbacks, 0, max(0, count($rollbacks) - $keep)) as $old) {
+            self::recursiveDelete(self::extensionsPath() . '/' . $old);
+        }
+    }
+
+    /**
+     * Step 2b. Runs at the top of every boot, but the common case is one
+     * is_dir() and out.
+     *
+     * Only on GET: a swap during the POST that requested it would leave that
+     * request's controller and views coming from the new tree while this
+     * process holds the old class in memory.
+     */
+    private static function maybeActivateSelfUpdate(): void {
+        if (!is_dir(self::stagePath())) {
+            return;
+        }
+        // Never from the CLI: actualize and the update scripts boot extensions
+        // too, and a swap there would exit() in the middle of a feed refresh
+        // with nobody to see the redirect.
+        if (PHP_SAPI === 'cli' || !isset($_SERVER['REQUEST_METHOD']) || $_SERVER['REQUEST_METHOD'] !== 'GET') {
+            return;
+        }
+        $pending = self::pendingSelfUpdate();
+        if ($pending === null || empty($pending['apply'])) {
+            return;
+        }
+
+        $error = self::activateSelfUpdate();
+        if ($error !== null) {
+            Minz_Log::error('ExtensionManager self-update: ' . $error);
+            return;
+        }
+
+        // Reload before anything else loads. extension.php is already included
+        // for this request, but controllers and views are pulled in lazily and
+        // would now come from the new tree — old class, new views. A fresh
+        // request has no such split.
+        if (!headers_sent()) {
+            $uri = (string) ($_SERVER['REQUEST_URI'] ?? './');
+            header('Location: ' . str_replace(["\r", "\n"], '', $uri));
+            exit();
+        }
+    }
+
+    /**
+     * Renames only. The ordering is the safety argument, so read it before
+     * changing it: at no instant may two directories under the extensions path
+     * carry a valid metadata.json, because that is a double include of this
+     * file and a fatal for the whole site.
+     *
+     *   1. live -> rollback         live is gone; only one manifest exists
+     *   2. rollback manifest away   rollback can no longer be discovered
+     *   3. staged -> live           still no manifest at the live path
+     *   4. staged manifest in place  new version becomes discoverable
+     *
+     * Every window between those steps is "Extension Manager is missing",
+     * which FreshRSS renders happily and the next request repairs.
+     */
+    private static function activateSelfUpdate(): ?string {
+        $lockPath = self::extensionsPath() . '/.extmgr.lock';
+        $lock = @fopen($lockPath, 'c');
+        if ($lock === false) {
+            return 'could not open the activation lock';
+        }
+        if (!flock($lock, LOCK_EX | LOCK_NB)) {
+            fclose($lock);
+            return null; // another request is mid-swap; nothing to report
+        }
+
+        try {
+            $stage = self::stagePath();
+            $live = self::selfPath();
+
+            $error = self::verifyStagedTree($stage);
+            if ($error !== null) {
+                self::recursiveDelete($stage);
+                return 'staged copy failed verification and was discarded: ' . $error;
+            }
+
+            $rollback = self::extensionsPath() . '/' . self::ROLLBACK_PREFIX . date('YmdHis');
+            if (!@rename($live, $rollback)) {
+                return 'could not move the running version aside';
+            }
+            @rename($rollback . '/metadata.json', $rollback . '/' . self::DISABLED_MANIFEST);
+
+            if (!@rename($stage, $live)) {
+                // Put it back exactly as it was, manifest last.
+                @rename($rollback . '/' . self::DISABLED_MANIFEST, $rollback . '/metadata.json');
+                @rename($rollback, $live);
+                return 'could not move the staged copy into place; the running version was restored';
+            }
+
+            if (!@rename($live . '/' . self::PENDING_MANIFEST, $live . '/metadata.json')) {
+                return 'staged copy is in place but its manifest could not be enabled';
+            }
+
+            @unlink($live . '/' . self::PENDING_RECORD);
+
+            // With opcache.validate_timestamps=0 the swapped files would keep
+            // running as the old bytecode until PHP restarts.
+            if (function_exists('opcache_reset')) {
+                @opcache_reset();
+            }
+            return null;
+        } finally {
+            flock($lock, LOCK_UN);
+            fclose($lock);
+            @unlink($lockPath);
+        }
+    }
+
     public function init() {
+        self::maybeActivateSelfUpdate();
         $this->registerController('extmgr');
         $this->registerViews();
 
@@ -45,6 +363,7 @@ class ExtensionManagerExtension extends Minz_Extension {
             'is_admin' => FreshRSS_Auth::hasAccess('admin'),
             'writable' => self::extensionsWritable(),
             'queued' => self::getQueuedInstalls(),
+            'pendingSelf' => self::pendingSelfUpdate(),
         ];
         return $vars;
     }
@@ -203,9 +522,10 @@ class ExtensionManagerExtension extends Minz_Extension {
     public static function queueInstall(string $tmpDir, string $extDirName, ?string $url = null, ?string $branch = null): string|bool {
         $extDirName = basename($extDirName);
 
-        if ($extDirName === 'xExtension-ExtensionManager') {
-            return 'Extension Manager cannot update itself this way. Replace the files manually.';
-        }
+        // Self is allowed through here: the queue is applied by
+        // install-queued.sh outside any request, and that script replaces this
+        // extension with the same rename sequence used in-app rather than by
+        // copying over the running tree.
 
         // Find source in extracted dir
         $sourceDir = self::findSourceInExtracted($tmpDir, $extDirName);
@@ -543,8 +863,12 @@ class ExtensionManagerExtension extends Minz_Extension {
             return 'Extracted repo not found. Try refreshing the catalog.';
         }
 
+        // Stays blocked, and must. This path copies file by file over the live
+        // directory, which is the one serving the request — a concurrent boot
+        // can read a half-written extension.php and fatal the whole site.
+        // Self-update goes through stageSelfUpdate() + activateSelfUpdate().
         if ($extDirName === 'xExtension-ExtensionManager') {
-            return 'Extension Manager cannot update itself this way. Replace the files manually.';
+            return 'Extension Manager updates itself by staging, not by copying over the running copy — use Download update.';
         }
 
         // Validate tmpDir is within expected temp directory
