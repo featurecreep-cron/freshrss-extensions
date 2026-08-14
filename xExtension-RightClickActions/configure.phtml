@@ -11,12 +11,12 @@ $actionGroups = [
     'header' => [
         '' => ['toggle_read', 'star_toggle', 'open_new_tab'],
         'Bulk actions' => ['mark_older', 'mark_newer'],
-        'Filtering' => ['filter_title', 'filter_feed'],
+        'Filtering' => ['filter_title', 'filter_star', 'filter_feed'],
     ],
     'body' => [
         '' => ['toggle_read', 'star_toggle', 'open_new_tab'],
         'Bulk actions' => ['mark_older', 'mark_newer'],
-        'Filtering' => ['filter_title', 'filter_feed'],
+        'Filtering' => ['filter_title', 'filter_star', 'filter_feed'],
     ],
     'sidebar_feed' => [
         '' => ['mark_all_read', 'mark_all_unread', 'recently_read', 'open_settings'],
@@ -32,7 +32,8 @@ $actionLabels = [
     'open_new_tab' => 'Open in new tab',
     'mark_older' => 'Mark older as read/unread',
     'mark_newer' => 'Mark newer as read/unread',
-    'filter_title' => 'Filter by title keyword',
+    'filter_title' => 'Hide articles by title keyword',
+    'filter_star' => 'Star articles by title keyword',
     'filter_feed' => 'Show this feed only',
     'mark_all_read' => 'Mark all as read',
     'mark_all_unread' => 'Mark all as unread',

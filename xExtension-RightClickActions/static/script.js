@@ -65,6 +65,7 @@
     { key: 'mark_newer', action: 'mark_newer_unread', icon: '\u2B06\uFE0F', label: 'Mark newer as unread' },
     { sep: true },
     { key: 'filter_title', icon: '\uD83D\uDEAB', label: 'Hide articles like this' },
+    { key: 'filter_star', icon: '\u2B50', label: 'Star articles like this' },
     { key: 'filter_feed', icon: '\uD83D\uDD0D', label: 'Show this feed only' }
   ];
 
@@ -138,11 +139,10 @@
       row.dataset.action = actionId;
 
       var actionLabel = item.label;
-      if (actionId === 'filter_title' && targetFlux) {
-        var titleEl = targetFlux.querySelector('.flux_header .title');
-        var text = titleEl ? titleEl.textContent.trim() : '';
+      if ((actionId === 'filter_title' || actionId === 'filter_star') && targetFlux) {
+        var text = articleTitleText(targetFlux);
         if (text.length > 40) text = text.substring(0, 40) + '\u2026';
-        actionLabel = 'Filter: ' + text;
+        actionLabel = (actionId === 'filter_star' ? 'Star: ' : 'Filter: ') + text;
       }
 
       var iconSpan = document.createElement('span');
@@ -206,6 +206,20 @@
     if ((makeRead && isUnread) || (!makeRead && !isUnread)) toggleRead(flux);
   }
 
+  function toggleStar(flux) {
+    var link = flux.querySelector('a.bookmark');
+    if (link) link.click();
+  }
+
+  // Safe to run after the server has already starred the same articles: the
+  // link carries the state it will set (is_favorite=1 while the row is
+  // unstarred), and this only clicks rows that still look unstarred, so a
+  // second pass sets true rather than toggling back to false.
+  function setStar(flux, makeStar) {
+    var isStarred = flux.classList.contains('favorite');
+    if ((makeStar && !isStarred) || (!makeStar && isStarred)) toggleStar(flux);
+  }
+
   function getOlderNewer(fluxes, idx) {
     var before = [];
     var after = [];
@@ -233,11 +247,12 @@
     };
   }
 
-  function addPermanentFilter(feedId, filter) {
+  function addPermanentFilter(feedId, filter, action) {
     var csrfToken = (context.extensions && context.extensions['Right-Click Actions'] && context.extensions['Right-Click Actions'].csrf) || '';
     var fd = new FormData();
     fd.append('id', feedId);
     fd.append('filter', filter);
+    fd.append('action', action || 'read');
     fd.append('_csrf', csrfToken);
 
     fetch('./?c=rcafilter&a=add', {
@@ -251,6 +266,66 @@
         else showNotification(data.error || 'Unknown error', true);
       })
       .catch(function (err) { showNotification('Error: ' + err, true); });
+  }
+
+  // FreshRSS reads a bare `intitle:two words` as intitle:two AND a loose
+  // "words", so a keyword lifted from an article title — which is exactly what
+  // the prompt pre-fills — has to be quoted or the saved rule matches far more
+  // than the user asked for. Mirrors QuickFilterService::buildFilterString().
+  function buildTitleFilter(keyword) {
+    return 'intitle:"' + keyword.replace(/"/g, '\\"') + '"';
+  }
+
+  // The title anchor is not only the title: FreshRSS nests its inline
+  // <span class="author"> inside it, and other extensions inject controls in
+  // there too — with QuickFilter installed, .textContent reads
+  // "Wednesday assorted links Tyler Cowen☆✓". Taking just the anchor's own text
+  // nodes leaves the title, whoever else has written into the element.
+  function articleTitleText(flux) {
+    var a = flux.querySelector('.flux_header a.item-element.title') || flux.querySelector('.title');
+    if (!a) return '';
+    var text = '';
+    Array.prototype.forEach.call(a.childNodes, function (n) {
+      if (n.nodeType === Node.TEXT_NODE) text += n.textContent;
+    });
+    text = text.trim();
+    return text || a.textContent.trim();
+  }
+
+  var FILTER_PROMPTS = {
+    read: 'Hide articles with titles containing:',
+    star: 'Star articles with titles containing:'
+  };
+
+  function filterOnTitle(action, fluxes) {
+    var articleTitle = articleTitleText(targetFlux);
+    var feedId = targetFlux.dataset.feed;
+
+    var keyword = prompt(FILTER_PROMPTS[action], articleTitle);
+    if (keyword === null) return;
+    keyword = keyword.trim();
+    if (!keyword || !feedId) return;
+
+    addPermanentFilter(feedId, buildTitleFilter(keyword), action);
+
+    // Apply it to what is already on screen. The server pass covers the rest of
+    // the feed but cannot touch this page's DOM. Scoped to the same feed as the
+    // saved rule — matching titles in other feeds are not what was asked for,
+    // and the rule will never act on them again.
+    var lower = keyword.toLowerCase();
+    var matched = 0;
+    fluxes.forEach(function (f) {
+      if (f.dataset.feed !== feedId) return;
+      if (articleTitleText(f).toLowerCase().indexOf(lower) !== -1) {
+        if (action === 'star') setStar(f, true);
+        else setRead(f, true);
+        matched++;
+      }
+    });
+    if (matched > 0) {
+      showNotification(matched + ' article' + (matched === 1 ? '' : 's') +
+        (action === 'star' ? ' starred' : ' marked read') + ' on page');
+    }
   }
 
   // ---------- Sidebar helpers ----------
@@ -369,23 +444,10 @@
         showNotification(ranges.newer.length + ' articles marked unread');
         break;
       case 'filter_title':
-        var titleEl = targetFlux.querySelector('.title');
-        var articleTitle = titleEl ? titleEl.textContent.trim() : '';
-        var feedId = targetFlux.dataset.feed;
-        var keyword = prompt('Filter articles with titles containing:', articleTitle);
-        if (!keyword || !feedId) break;
-        addPermanentFilter(feedId, 'intitle:' + keyword);
-        // Also mark matching articles on the current page as read
-        var lower = keyword.toLowerCase();
-        var matched = 0;
-        fluxes.forEach(function (f) {
-          var t = f.querySelector('.title');
-          if (t && t.textContent.toLowerCase().includes(lower)) {
-            setRead(f, true);
-            matched++;
-          }
-        });
-        if (matched > 0) showNotification(matched + ' articles marked read on page');
+        filterOnTitle('read', fluxes);
+        break;
+      case 'filter_star':
+        filterOnTitle('star', fluxes);
         break;
       case 'filter_feed':
         var feedLink = targetFlux.querySelector('.flux_header a[href*="get=f_"]');
