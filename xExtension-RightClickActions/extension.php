@@ -69,9 +69,10 @@ class RightClickActionsExtension extends Minz_Extension {
 
             // The form posts a hidden '0' before each checkbox's '1', and
             // paramBoolean() reads both — same result as the old `=== '1'`,
-            // without Minz_Request::param(), which FreshRSS 1.29 deprecated and
-            // which emits a notice on every save (the defect reported against
-            // Sticky Reader in #14).
+            // without Minz_Request::param(), which upstream deprecated (the
+            // #[Deprecated] attribute is present as far back as 1.28.1) and which
+            // emits a notice on every save — the defect reported against Sticky
+            // Reader in #14, seen there on 1.29.2-dev.
             foreach (array_keys($config['zones']) as $zone) {
                 $config['zones'][$zone] = Minz_Request::paramBoolean('zone_' . $zone);
             }

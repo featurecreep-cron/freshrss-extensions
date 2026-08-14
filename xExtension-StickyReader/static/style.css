@@ -23,7 +23,7 @@
  * toolbar and the article list, which read as "the toolbar moved right" when in
  * fact the toolbar had not moved at all.
  *
- * Measured on FreshRSS 1.29.x / theme Origine: `.aside` position flips
+ * Measured on FreshRSS 1.28.1 / theme Origine: `.aside` position flips
  * fixed → static → fixed at viewport widths 737 / 1292 / 580 while its width
  * stays 284.323px throughout. Both halves of the mechanism.
  *
@@ -101,7 +101,7 @@
  * way once the remaining articles are shorter than the viewport, which is why a
  * short list shows it immediately and a long one only at the bottom.
  *
- * Measured on a live FreshRSS 1.29.x instance, 11-article list, 1700x960,
+ * Measured on a live FreshRSS 1.28.1 instance, 11-article list, 1700x960,
  * search_bar mode, target position 77px. Without trailing space five of ten
  * openings landed at 135, 223, 257, 266 and 342px, each with scrollTop already
  * equal to scrollHeight - clientHeight. With this rule, all twenty openings —
