@@ -96,7 +96,7 @@ staged manifest -> metadata.json          (last: the new version becomes visible
 
 At no point do two directories carry a valid manifest, so the class is never declared twice. Every intermediate state is "Extension Manager is momentarily missing", which FreshRSS renders without complaint and the next request repairs. The previous version stays on disk as `.extmgr-rollback-<timestamp>` until the next update.
 
-Applying is deliberately separate from staging so that merely browsing never swaps the code out from under you.
+Applying is deliberately separate from staging so that merely browsing never swaps the code out from under you. A staged copy you have changed your mind about is removed with **Discard**, which deletes it and leaves the running version untouched.
 
 **What this cannot do:** if a staged copy is broken in a way the verifier does not catch, the code that would roll it back is the code that is broken. That is why verification happens before the swap and why the previous version is kept — recovery is one `mv`, not a reinstall.
 

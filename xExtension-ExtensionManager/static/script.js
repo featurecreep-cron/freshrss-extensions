@@ -584,8 +584,13 @@
       wrap.appendChild(makeApplyButton(pendingSelf.version));
       var note = document.createElement('span');
       note.className = 'ext-mgr-staged-note';
-      note.textContent = pendingSelf.version ? pendingSelf.version + ' verified' : 'verified';
+      note.textContent = (pendingSelf.version || 'staged') +
+        (pendingSelf.branch ? ' from ' + pendingSelf.branch : '') + ' verified';
       wrap.appendChild(note);
+      // Staging is reversible and should look it — without this the only way
+      // out of a staged copy you have changed your mind about is deleting the
+      // directory by hand.
+      wrap.appendChild(makeDiscardButton());
       return wrap;
     }
 
@@ -622,6 +627,29 @@
       }).catch(function (err) {
         btn.disabled = false;
         btn.textContent = 'Apply update';
+        showNotification('Error: ' + err.message, true);
+      });
+    });
+    return btn;
+  }
+
+  function makeDiscardButton() {
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'ext-mgr-discard';
+    btn.textContent = 'Discard';
+    btn.title = 'Delete the staged copy; the running version is not touched';
+    btn.addEventListener('click', function () {
+      btn.disabled = true;
+      apiCall('discardself', {}).then(function (data) {
+        if (data.success) {
+          window.location.reload();
+        } else {
+          btn.disabled = false;
+          showNotification(data.error || 'Could not discard the staged copy', true);
+        }
+      }).catch(function (err) {
+        btn.disabled = false;
         showNotification('Error: ' + err.message, true);
       });
     });
