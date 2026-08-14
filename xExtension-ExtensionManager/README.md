@@ -66,6 +66,14 @@ Only one copy of a given extension can be installed at a time. When the installe
 
 A branch that does not exist is reported as an error. It is never silently replaced with the default branch, because that would install code you did not ask for and report success.
 
+### Switching branches
+
+In a section whose branch is not the one the installed copy came from, the action is **Switch to `<branch>`** instead of Install or Update. It replaces the installed copy with that section's build and records the new origin, so testing from `develop` and returning to `main` is a single click in each direction.
+
+The switch is offered on the difference in origin, not on version order — you can move back to a branch that is behind the one you are on, which is the usual case after testing something on `develop`. Because that can be a downgrade, the button is coloured differently from Install and Update.
+
+An extension installed before source tracking existed has no recorded origin. Those keep the old behaviour — Update when a newer version is available — since an install that cannot be placed is not evidence that it came from somewhere else.
+
 ## Compatibility
 
 Requires FreshRSS 1.20+.
