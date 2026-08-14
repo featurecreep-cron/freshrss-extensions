@@ -52,12 +52,48 @@ if [ -d "$QUEUE_DIR" ]; then
             continue
         fi
 
+        target="$EXT_PATH/$dir_name"
+
+        # Extension Manager is replaced by renames rather than by copying over
+        # the live tree. FreshRSS loads any directory under $EXT_PATH that has a
+        # valid metadata.json, so two copies carrying one would declare the same
+        # class twice and take the whole site down. Withholding the manifest
+        # keeps a half-built tree invisible, and the ordering below means the
+        # worst intermediate state is "Extension Manager is missing".
         if [ "$dir_name" = "xExtension-ExtensionManager" ]; then
-            echo "[ExtMgr] Skipping $dir_name — cannot self-update via queue"
+            echo "[ExtMgr] Updating $dir_name (staged swap)"
+            staged="$EXT_PATH/.extmgr-staged-queue"
+            rollback="$EXT_PATH/.extmgr-rollback-$(date +%Y%m%d%H%M%S)"
+
+            rm -rf "$staged"
+            cp -r "$ext_dir" "$staged"
+
+            if ! php -l "$staged/extension.php" >/dev/null 2>&1; then
+                echo "[ExtMgr] $dir_name — FAILED, staged extension.php does not parse; left the running copy alone"
+                rm -rf "$staged"
+                continue
+            fi
+
+            mv "$staged/metadata.json" "$staged/metadata.json.pending"
+
+            if [ -d "$target" ]; then
+                mv "$target" "$rollback"
+                mv "$rollback/metadata.json" "$rollback/metadata.json.disabled" 2>/dev/null || true
+            fi
+
+            if mv "$staged" "$target"; then
+                mv "$target/metadata.json.pending" "$target/metadata.json"
+                echo "[ExtMgr] $dir_name — done (previous version kept at $rollback)"
+            else
+                echo "[ExtMgr] $dir_name — FAILED, restoring previous version"
+                rm -rf "$staged"
+                if [ -d "$rollback" ]; then
+                    mv "$rollback/metadata.json.disabled" "$rollback/metadata.json" 2>/dev/null || true
+                    mv "$rollback" "$target"
+                fi
+            fi
             continue
         fi
-
-        target="$EXT_PATH/$dir_name"
 
         if [ -d "$target" ]; then
             echo "[ExtMgr] Updating $dir_name"

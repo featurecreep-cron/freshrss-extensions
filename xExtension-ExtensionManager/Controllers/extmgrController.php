@@ -18,6 +18,35 @@ final class FreshExtension_extmgr_Controller extends Minz_ActionController {
         }
     }
 
+    /**
+     * Arms the staged self-update. The swap itself is not done here: it
+     * happens at the start of the next GET, before controllers and views are
+     * loaded, because this request is already running out of the directory
+     * being replaced.
+     */
+    public function applyselfAction(): void {
+        $this->requireAdmin();
+        if (!Minz_Request::isPost()) {
+            $this->sendJson(['error' => 'POST required'], 405);
+        }
+        $result = ExtensionManagerExtension::requestSelfActivation();
+        if ($result === true) {
+            $this->sendJson(['success' => true, 'message' => 'Applying — reloading into the new version']);
+        }
+        $this->sendJson(['error' => is_string($result) ? $result : 'Unknown error'], 500);
+    }
+
+    public function discardselfAction(): void {
+        $this->requireAdmin();
+        if (!Minz_Request::isPost()) {
+            $this->sendJson(['error' => 'POST required'], 405);
+        }
+        if (ExtensionManagerExtension::discardSelfUpdate()) {
+            $this->sendJson(['success' => true, 'message' => 'Staged update discarded']);
+        }
+        $this->sendJson(['error' => 'Could not remove the staged copy'], 500);
+    }
+
     public function installAction(): void {
         $this->requireAdmin();
         if (!Minz_Request::isPost()) {
@@ -40,6 +69,36 @@ final class FreshExtension_extmgr_Controller extends Minz_ActionController {
             $entry = ExtensionManagerExtension::getCatalogEntry($catalogToken);
             $srcUrl = $entry['url'] ?? null;
             $srcBranch = $entry['branch'] ?? null;
+
+            // Updating ourselves cannot be a copy over the running tree, so it
+            // becomes a staged copy the user applies as a second step.
+            if (ExtensionManagerExtension::isSelfDir($dir)) {
+                if (!ExtensionManagerExtension::extensionsWritable()) {
+                    // No writable extensions directory means no rename either;
+                    // hand it to the queue, which install-queued.sh applies
+                    // out-of-band using the same swap.
+                    $result = ExtensionManagerExtension::queueInstall($tmpDir, $dir, $srcUrl, $srcBranch);
+                    if ($result === true) {
+                        $this->sendJson([
+                            'success' => true,
+                            'queued' => true,
+                            'message' => 'Extension Manager queued — run install-queued.sh to apply it',
+                        ]);
+                    }
+                    $this->sendJson(['error' => is_string($result) ? $result : 'Unknown error'], 500);
+                }
+                $result = ExtensionManagerExtension::stageSelfUpdate($tmpDir, $dir, $srcUrl, $srcBranch);
+                if ($result === true) {
+                    $pending = ExtensionManagerExtension::pendingSelfUpdate();
+                    $this->sendJson([
+                        'success' => true,
+                        'staged' => true,
+                        'version' => $pending['version'] ?? null,
+                        'message' => 'Extension Manager ' . ($pending['version'] ?? '') . ' downloaded and verified — apply it to finish',
+                    ]);
+                }
+                $this->sendJson(['error' => is_string($result) ? $result : 'Unknown error'], 500);
+            }
 
             if (ExtensionManagerExtension::extensionsWritable()) {
                 $result = ExtensionManagerExtension::installFromExtracted($tmpDir, $dir, $srcUrl, $srcBranch);

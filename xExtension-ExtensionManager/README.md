@@ -74,6 +74,34 @@ The switch is offered on the difference in origin, not on version order — you 
 
 An extension installed before source tracking existed has no recorded origin. Those keep the old behaviour — Update when a newer version is available — since an install that cannot be placed is not evidence that it came from somewhere else.
 
+## Updating Extension Manager itself
+
+Extension Manager cannot copy a new version over the directory it is running from: FreshRSS boots every extension on every request, and a recursive copy has a visible half-written state that would fatal the whole site rather than just this page. So its own update is two steps, each named for what it does.
+
+**Download update** fetches the new version and builds it alongside the running one, then verifies it before it is allowed anywhere near activation:
+
+- the manifest parses and its `entrypoint` resolves to `ExtensionManagerExtension`
+- every `.php` file is parsed with `token_get_all(..., TOKEN_PARSE)` — a truncated download or a bad commit is caught here, not at the next request's `include`
+- `Controllers/`, `static/` and `views/` are present
+
+A staged copy holds its manifest as `metadata.json.pending`, so FreshRSS's extension scan cannot see it. Nothing about the running install has changed at this point, and a staged copy that is never applied is inert.
+
+**Apply update** swaps them at the start of the next request, before any controller or view is loaded, then reloads into the new version. The swap is renames only:
+
+```
+live    -> .extmgr-rollback-<timestamp>   (and its manifest renamed away)
+staged  -> live
+staged manifest -> metadata.json          (last: the new version becomes visible)
+```
+
+At no point do two directories carry a valid manifest, so the class is never declared twice. Every intermediate state is "Extension Manager is momentarily missing", which FreshRSS renders without complaint and the next request repairs. The previous version stays on disk as `.extmgr-rollback-<timestamp>` until the next update.
+
+Applying is deliberately separate from staging so that merely browsing never swaps the code out from under you.
+
+**What this cannot do:** if a staged copy is broken in a way the verifier does not catch, the code that would roll it back is the code that is broken. That is why verification happens before the swap and why the previous version is kept — recovery is one `mv`, not a reinstall.
+
+If the extensions directory is not writable, the update is queued instead and `install-queued.sh` performs the same swap out of band.
+
 ## Compatibility
 
 Requires FreshRSS 1.20+.

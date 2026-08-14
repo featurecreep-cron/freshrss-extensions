@@ -18,6 +18,10 @@
    branch, which may be a downgrade — distinct from the green install and the
    orange update so it is not clicked by reflex. */
 .ext-mgr-switch { background: #5C6BC0; color: #fff !important; border-color: #3F51B5; }
+
+/* A staged self-update: downloaded and verified, not yet in place. */
+.ext-mgr-self-pending { display: inline-flex; align-items: center; gap: 0.5em; }
+.ext-mgr-staged-note { font-size: 0.8em; opacity: 0.7; }
 .ext-mgr-done { background: transparent; color: inherit !important; border-color: currentColor; cursor: default; opacity: 0.6; }
 .ext-mgr-queued { background: #1976D2; color: #fff !important; border-color: #1565C0; cursor: default; }
 
