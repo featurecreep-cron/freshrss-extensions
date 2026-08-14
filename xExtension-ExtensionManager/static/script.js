@@ -610,7 +610,12 @@
       ((info.source || null) !== (ext.url || null) || (info.branch || null) !== (ext.branch || null));
 
     if (isAdmin && isWritable && (newer || fromOtherSource)) {
-      var label = fromOtherSource ? 'Download from ' + (ext.branch || 'this source') : 'Download update';
+      // Origin wins over version here. A different branch is a move, and
+      // labelling it "Download update" advertises an update that does not
+      // exist — the same word every other row uses for a switch is the honest
+      // one, even though ours needs a second step to finish. Only a genuinely
+      // higher version on our own branch is an update.
+      var label = fromOtherSource ? 'Switch to ' + (ext.branch || 'this source') : 'Download update';
       return makeInstallButton(label, null, ext.name, ext.dir, catalogToken);
     }
 
@@ -675,11 +680,10 @@
   }
 
   function makeInstallButton(label, extUrl, extName, extDir, catalogToken) {
-    // "Download from <branch>" moves between sources like Switch does, so it
-    // gets the same colour — the green install button should mean "this is not
-    // installed yet", nothing else.
+    // Green should mean "not installed yet" and nothing else, so a switch keeps
+    // its own colour whether it completes in one step or two.
     var isDownload = label.indexOf('Download') === 0;
-    var isSwitch = label.indexOf('Switch') === 0 || label.indexOf('Download from') === 0;
+    var isSwitch = label.indexOf('Switch') === 0;
     var variant = label === 'Update' ? 'ext-mgr-update' : (isSwitch ? 'ext-mgr-switch' : 'ext-mgr-install');
     var btn = document.createElement('button');
     btn.type = 'button';
