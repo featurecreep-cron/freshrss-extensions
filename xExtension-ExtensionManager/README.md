@@ -48,6 +48,24 @@ Refresh FreshRSS in your browser after running.
 
 Settings → Extensions → Extension Manager → Configure. Add GitHub repository URLs (one per line) as extension sources.
 
+### Tracking a branch
+
+Append `/tree/<branch>` to install from somewhere other than the repository's default branch:
+
+```
+https://github.com/user/repo
+https://github.com/user/repo/tree/develop
+https://github.com/user/repo/tree/fix/some-bug
+```
+
+That is the URL GitHub shows in the address bar when you switch branches, so it can be pasted directly. Branch names containing slashes work.
+
+The same repository may be listed more than once on different branches. Each gets its own section on the Extensions page, labelled with the branch, so it is clear which one an Install button will use.
+
+Only one copy of a given extension can be installed at a time. When the installed copy came from a different branch than the section you are looking at, the Installed column shows that branch next to the version — so a build from `develop` is never mistaken for one from `main`.
+
+A branch that does not exist is reported as an error. It is never silently replaced with the default branch, because that would install code you did not ask for and report success.
+
 ## Compatibility
 
 Requires FreshRSS 1.20+.

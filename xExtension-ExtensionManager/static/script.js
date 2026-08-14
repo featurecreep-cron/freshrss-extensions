@@ -184,7 +184,7 @@
 
     var input = document.createElement('input');
     input.type = 'url';
-    input.placeholder = 'https://github.com/user/repo';
+    input.placeholder = 'https://github.com/user/repo  (or .../tree/branch)';
     input.className = 'ext-mgr-url-input';
 
     var btn = document.createElement('button');
@@ -195,8 +195,10 @@
     btn.addEventListener('click', function () {
       var url = input.value.trim();
       if (!url) return;
-      if (!/^https:\/\/github\.com\/[a-zA-Z0-9._-]+\/[a-zA-Z0-9._-]+$/.test(url)) {
-        showNotification('Only GitHub repository URLs are supported', true);
+      // Optional /tree/<branch>; branch names may contain slashes (fix/foo).
+      // Mirrors parseSource() in extension.php — keep the two in step.
+      if (!/^https:\/\/github\.com\/[a-zA-Z0-9._-]+\/[a-zA-Z0-9._-]+(\/tree\/[A-Za-z0-9][A-Za-z0-9._/-]*)?$/.test(url)) {
+        showNotification('Expected https://github.com/owner/repo, optionally with /tree/branch', true);
         return;
       }
 
@@ -254,6 +256,18 @@
     main.appendChild(container);
   }
 
+  /**
+   * "https://github.com/owner/repo/tree/fix/foo" -> {repo: "owner/repo", branch: "fix/foo"}
+   * Mirrors parseSource() in extension.php.
+   */
+  function splitSource(url) {
+    var m = /^https:\/\/github\.com\/([a-zA-Z0-9._-]+\/[a-zA-Z0-9._-]+)(?:\/tree\/(.+))?$/.exec(
+      String(url).replace(/\/+$/, '')
+    );
+    if (!m) return { repo: String(url).replace('https://github.com/', ''), branch: null };
+    return { repo: m[1], branch: m[2] || null };
+  }
+
   function loadSingleRepoCatalog(repoUrl) {
     var main = document.querySelector('.post') || document.querySelector('#content') || document.body;
 
@@ -261,7 +275,19 @@
     section.className = 'ext-mgr-repo-section';
 
     var heading = document.createElement('h3');
-    heading.textContent = repoUrl.replace('https://github.com/', '');
+    var parts = splitSource(repoUrl);
+    heading.textContent = parts.repo;
+    if (parts.branch) {
+      // Two sources can differ only by branch, so the branch has to be visible
+      // on the heading — otherwise the page shows the same extension twice with
+      // no way to tell which table installs what.
+      var tag = document.createElement('span');
+      tag.className = 'ext-mgr-branch';
+      tag.textContent = parts.branch;
+      tag.title = 'Branch: ' + parts.branch;
+      heading.appendChild(document.createTextNode(' '));
+      heading.appendChild(tag);
+    }
     section.appendChild(heading);
 
     var loading = document.createElement('p');
@@ -467,6 +493,8 @@
       installedByName[installed[dir].name] = {
         dir: dir,
         version: String(installed[dir].version),
+        branch: installed[dir].branch || null,
+        source: installed[dir].source || null,
       };
     }
 
@@ -481,6 +509,17 @@
 
       var tdInstalled = document.createElement('td');
       tdInstalled.textContent = info ? info.version : '';
+      // Only one copy of a given extension can be installed at a time, so when
+      // the installed copy came from a different branch than this table, say so
+      // — otherwise both tables claim the same version and neither is wrong.
+      if (info && info.branch && info.branch !== ext.branch) {
+        var from = document.createElement('span');
+        from.className = 'ext-mgr-branch ext-mgr-branch-other';
+        from.textContent = info.branch;
+        from.title = 'Installed from ' + (info.source || '') + ' @ ' + info.branch;
+        tdInstalled.appendChild(document.createTextNode(' '));
+        tdInstalled.appendChild(from);
+      }
       tr.appendChild(tdInstalled);
 
       var tdVersion = document.createElement('td');

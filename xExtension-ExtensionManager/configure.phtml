@@ -3,7 +3,18 @@
 
     <div class="form-group">
         <label for="repos">Extension repositories</label>
-        <p class="help">One GitHub repository URL per line. Extensions from these repos will appear on the Extensions page.</p>
+        <p class="help">
+            One GitHub repository URL per line. Extensions from these repos will appear on the Extensions page.
+        </p>
+        <p class="help">
+            To track a branch instead of the default, add <code>/tree/&lt;branch&gt;</code> — the URL GitHub
+            shows when you switch branches, so you can paste it straight in. The same repository can be listed
+            more than once on different branches; each gets its own section, labelled with the branch.
+        </p>
+        <p class="help">
+            <code>https://github.com/user/repo</code><br>
+            <code>https://github.com/user/repo/tree/develop</code>
+        </p>
         <textarea id="repos" name="repos" rows="4" cols="60" placeholder="https://github.com/user/repo"><?= htmlspecialchars(implode("\n", $this->getUserConfigurationValue('repos') ?: [])) ?></textarea>
     </div>
 

@@ -3,6 +3,13 @@
 class ExtensionManagerExtension extends Minz_Extension {
 
     /**
+     * Sidecar file recording which repository and branch an extension was
+     * installed from. Lets the Extensions page distinguish two installs of the
+     * same extension that came from different branches.
+     */
+    private const SOURCE_MARKER = '.extmgr-source.json';
+
+    /**
      * Queue directory for deferred installs (within FreshRSS data dir).
      * Used when the extensions directory is not writable at runtime.
      */
@@ -61,9 +68,17 @@ class ExtensionManagerExtension extends Minz_Extension {
             if (file_exists($metaFile)) {
                 $meta = json_decode(file_get_contents($metaFile), true);
                 if ($meta) {
+                    $marker = self::readSourceMarker($dir);
                     $installed[basename($dir)] = [
                         'name' => $meta['name'] ?? basename($dir),
                         'version' => $meta['version'] ?? '0',
+                        // null for hand-installed extensions and anything
+                        // installed before Extension Manager recorded this.
+                        'source' => $marker['url'] ?? null,
+                        'branch' => $marker['branch'] ?? null,
+                        'sourceLabel' => $marker
+                            ? self::sourceLabel($marker['url'], $marker['branch'] ?? null)
+                            : null,
                     ];
                 }
             }
@@ -79,7 +94,7 @@ class ExtensionManagerExtension extends Minz_Extension {
      * Store a catalog tmpDir in the PHP session, keyed by a random token.
      * Returns the token for client reference.
      */
-    private static function storeCatalogSession(string $tmpDir): string {
+    private static function storeCatalogSession(string $tmpDir, ?string $url = null, ?string $branch = null): string {
         if (session_status() !== PHP_SESSION_ACTIVE) {
             @session_start();
         }
@@ -89,6 +104,8 @@ class ExtensionManagerExtension extends Minz_Extension {
         }
         $_SESSION['extmgr_catalogs'][$token] = [
             'tmpDir' => $tmpDir,
+            'url' => $url,
+            'branch' => $branch,
             'created' => time(),
         ];
         // Expire old entries (> 30 minutes)
@@ -125,6 +142,55 @@ class ExtensionManagerExtension extends Minz_Extension {
         return $entry['tmpDir'];
     }
 
+    /**
+     * Full catalog session entry — tmpDir plus the source it was fetched from.
+     * Returns null if not found or expired. Unlike getCatalogSession() this does
+     * not clean up on expiry; call that first if you need both.
+     */
+    public static function getCatalogEntry(string $token): ?array {
+        if (session_status() !== PHP_SESSION_ACTIVE) {
+            @session_start();
+        }
+        $entry = $_SESSION['extmgr_catalogs'][$token] ?? null;
+        if (!is_array($entry) || time() - $entry['created'] > 1800) {
+            return null;
+        }
+        return $entry;
+    }
+
+    /**
+     * Record where an installed extension came from, as a sidecar file inside
+     * the extension directory. Written into the *source* tree before the copy,
+     * so both the direct and queued install paths carry it along without either
+     * needing to know about it.
+     *
+     * A dotfile: FreshRSS only looks for metadata.json and extension.php, and
+     * getInstalledExtensions() globs xExtension-* directories, so this is inert.
+     */
+    private static function writeSourceMarker(string $dir, ?string $url, ?string $branch): void {
+        if ($url === null) {
+            return;
+        }
+        @file_put_contents($dir . '/' . self::SOURCE_MARKER, json_encode([
+            'url' => $url,
+            'branch' => $branch,
+            'installed' => gmdate('c'),
+        ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+    }
+
+    /**
+     * Read the sidecar written by writeSourceMarker(). Null when the extension
+     * was installed by hand or by an older Extension Manager.
+     */
+    private static function readSourceMarker(string $dir): ?array {
+        $file = $dir . '/' . self::SOURCE_MARKER;
+        if (!file_exists($file)) {
+            return null;
+        }
+        $data = json_decode((string) file_get_contents($file), true);
+        return is_array($data) && isset($data['url']) ? $data : null;
+    }
+
     // ---------------------------------------------------------------
     // Queue mode: deferred installs via FreshRSS data directory
     // ---------------------------------------------------------------
@@ -134,7 +200,7 @@ class ExtensionManagerExtension extends Minz_Extension {
      * Copies the extension source to DATA_PATH/extmgr/queue/{dirName}/
      * and writes a manifest entry.
      */
-    public static function queueInstall(string $tmpDir, string $extDirName): string|bool {
+    public static function queueInstall(string $tmpDir, string $extDirName, ?string $url = null, ?string $branch = null): string|bool {
         $extDirName = basename($extDirName);
 
         if ($extDirName === 'xExtension-ExtensionManager') {
@@ -150,6 +216,10 @@ class ExtensionManagerExtension extends Minz_Extension {
         if (!file_exists($sourceDir . '/metadata.json') || !file_exists($sourceDir . '/extension.php')) {
             return 'Extension is missing required files (metadata.json or extension.php)';
         }
+
+        // Written before the copy so it travels into the queue and out again
+        // when install-queued.sh moves the directory into place.
+        self::writeSourceMarker($sourceDir, $url, $branch);
 
         $queueDir = self::queueDir() . '/queue';
         if (!is_dir($queueDir)) {
@@ -296,20 +366,81 @@ class ExtensionManagerExtension extends Minz_Extension {
      * Fetch the extension catalog from a GitHub repo.
      * Returns array with 'extensions', 'catalogToken' (session key), or 'error'.
      */
-    public static function fetchRepoCatalog($url) {
-        if (!preg_match('#^https://github\.com/[a-zA-Z0-9._-]+/[a-zA-Z0-9._-]+$#', $url)) {
-            return ['error' => 'Invalid URL: only GitHub repositories supported'];
+    /**
+     * Split a configured source into a repository URL and an optional branch.
+     *
+     * Accepted forms:
+     *   https://github.com/owner/repo                    → branch null (resolve main, then master)
+     *   https://github.com/owner/repo/tree/develop        → branch "develop"
+     *   https://github.com/owner/repo/tree/fix/some-bug   → branch "fix/some-bug"
+     *
+     * The /tree/ form is what GitHub puts in the address bar when you switch
+     * branches, so it can be pasted straight in. Branch names may contain
+     * slashes, so everything after /tree/ is the branch.
+     *
+     * Returns ['url' => string, 'branch' => ?string], or null if not a GitHub URL.
+     */
+    public static function parseSource(string $source): ?array {
+        $source = trim($source);
+        $source = rtrim($source, '/');
+
+        if (!preg_match('#^(https://github\.com/[a-zA-Z0-9._-]+/[a-zA-Z0-9._-]+?)(?:\.git)?(?:/tree/(.+))?$#', $source, $m)) {
+            return null;
         }
 
-        $url = rtrim($url, '/');
-        $url = preg_replace('#\.git$#', '', $url);
-
-        $zipData = self::downloadZip($url . '/archive/refs/heads/main.zip');
-        if ($zipData === false) {
-            $zipData = self::downloadZip($url . '/archive/refs/heads/master.zip');
+        $branch = isset($m[2]) && $m[2] !== '' ? $m[2] : null;
+        if ($branch !== null && !self::isSafeBranch($branch)) {
+            return null;
         }
-        if ($zipData === false) {
-            return ['error' => 'Failed to download from ' . $url];
+
+        return ['url' => $m[1], 'branch' => $branch];
+    }
+
+    /**
+     * Branch names go into a URL path, so refuse traversal and anything that is
+     * not a plausible ref. Slashes are allowed — `fix/foo` is a normal branch.
+     */
+    private static function isSafeBranch(string $branch): bool {
+        if (strpos($branch, '..') !== false) {
+            return false;
+        }
+        return (bool) preg_match('#^[A-Za-z0-9][A-Za-z0-9._/-]*$#', $branch);
+    }
+
+    /**
+     * Human-readable label for a source, e.g. "owner/repo @ develop".
+     */
+    public static function sourceLabel(string $url, ?string $branch): string {
+        $label = preg_replace('#^https://github\.com/#', '', $url);
+        return $branch === null ? $label : $label . ' @ ' . $branch;
+    }
+
+    public static function fetchRepoCatalog($source) {
+        $parsed = self::parseSource($source);
+        if ($parsed === null) {
+            return ['error' => 'Invalid URL: expected https://github.com/owner/repo, optionally with /tree/branch'];
+        }
+
+        $url = $parsed['url'];
+        $branch = $parsed['branch'];
+
+        if ($branch !== null) {
+            // Explicit branch: no silent fallback. Falling back to main here
+            // would install code the user did not ask for and report success.
+            $zipData = self::downloadZip($url . '/archive/refs/heads/' . $branch . '.zip');
+            if ($zipData === false) {
+                return ['error' => 'Branch "' . $branch . '" not found in ' . $url];
+            }
+        } else {
+            $branch = 'main';
+            $zipData = self::downloadZip($url . '/archive/refs/heads/main.zip');
+            if ($zipData === false) {
+                $branch = 'master';
+                $zipData = self::downloadZip($url . '/archive/refs/heads/master.zip');
+            }
+            if ($zipData === false) {
+                return ['error' => 'Failed to download from ' . $url];
+            }
         }
 
         $tmpFile = tempnam(sys_get_temp_dir(), 'frss_ext_');
@@ -341,6 +472,8 @@ class ExtensionManagerExtension extends Minz_Extension {
                     'description' => $meta['description'] ?? '',
                     'author' => $meta['author'] ?? '',
                     'url' => $url,
+                    'branch' => $branch,
+                    'label' => self::sourceLabel($url, $branch),
                 ];
             }
         }
@@ -350,8 +483,9 @@ class ExtensionManagerExtension extends Minz_Extension {
             return ['error' => 'No extensions found in repository'];
         }
 
-        // Store tmpDir in session instead of sending to client
-        $catalogToken = self::storeCatalogSession($tmpDir);
+        // Store tmpDir in session instead of sending to client. The source is
+        // stored with it so an install can record where the code came from.
+        $catalogToken = self::storeCatalogSession($tmpDir, $url, $branch);
 
         return ['extensions' => $catalog, 'catalogToken' => $catalogToken];
     }
@@ -401,7 +535,7 @@ class ExtensionManagerExtension extends Minz_Extension {
      * Install a single extension by directory name from an already-extracted repo.
      * Returns true on success, or an error string on failure.
      */
-    public static function installFromExtracted($tmpDir, $extDirName): string|bool {
+    public static function installFromExtracted($tmpDir, $extDirName, ?string $url = null, ?string $branch = null): string|bool {
         // Sanitize: strip any path components
         $extDirName = basename($extDirName);
 
@@ -426,6 +560,9 @@ class ExtensionManagerExtension extends Minz_Extension {
         if (!file_exists($sourceDir . '/metadata.json') || !file_exists($sourceDir . '/extension.php')) {
             return 'Extension is missing required files (metadata.json or extension.php)';
         }
+
+        // Written before the copy so it travels with the files.
+        self::writeSourceMarker($sourceDir, $url, $branch);
 
         $extPath = dirname(dirname(__FILE__));
         $targetDir = $extPath . '/' . $extDirName;
@@ -487,11 +624,15 @@ class ExtensionManagerExtension extends Minz_Extension {
      * Install directly from a GitHub URL (single-extension repos, community table).
      */
     public static function downloadAndInstall($url, $extName = null) {
-        // Handle tree URLs: https://github.com/user/repo/tree/branch/xExtension-Foo
+        // Handle deep tree URLs pointing at one extension inside a repo:
+        //   https://github.com/owner/repo/tree/<branch>/xExtension-Foo
+        // The branch is kept and passed through to fetchRepoCatalog() — it used
+        // to be matched and thrown away, so every such URL silently installed
+        // main regardless of the branch the user pasted.
         $targetExtDir = null;
-        if (preg_match('#^(https://github\.com/[a-zA-Z0-9._-]+/[a-zA-Z0-9._-]+)/tree/[^/]+/(xExtension-[a-zA-Z0-9._-]+)$#', $url, $matches)) {
-            $url = $matches[1];
-            $targetExtDir = $matches[2];
+        if (preg_match('#^(https://github\.com/[a-zA-Z0-9._-]+/[a-zA-Z0-9._-]+)/tree/(.+)/(xExtension-[a-zA-Z0-9._-]+)$#', $url, $matches)) {
+            $url = $matches[1] . '/tree/' . $matches[2];
+            $targetExtDir = $matches[3];
         }
 
         $result = self::fetchRepoCatalog($url);
@@ -539,10 +680,12 @@ class ExtensionManagerExtension extends Minz_Extension {
         }
 
         // Decide mode: immediate install or queue
+        $srcUrl = $extToInstall['url'] ?? null;
+        $srcBranch = $extToInstall['branch'] ?? null;
         if (self::extensionsWritable()) {
-            $installResult = self::installFromExtracted($tmpDir, $extToInstall['dir']);
+            $installResult = self::installFromExtracted($tmpDir, $extToInstall['dir'], $srcUrl, $srcBranch);
         } else {
-            $installResult = self::queueInstall($tmpDir, $extToInstall['dir']);
+            $installResult = self::queueInstall($tmpDir, $extToInstall['dir'], $srcUrl, $srcBranch);
         }
         self::recursiveDelete($tmpDir);
         return $installResult;
