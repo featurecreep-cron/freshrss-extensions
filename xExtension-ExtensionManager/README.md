@@ -102,6 +102,8 @@ Extension Manager moves between branches the same way every other extension does
 
 The switch still needs the two steps, because self-replacement can never be a copy over the running tree: **Switch to `<branch>`** stages and verifies, then **Apply switch** performs the swap. Only a genuinely higher version on the branch you are already on is offered as **Download update**.
 
+There is one staging area, not one per source, so Apply appears only in the section the staged copy came from. Other sections show `staged from <branch>` instead — apply or discard it there first.
+
 **What this cannot do:** if a staged copy is broken in a way the verifier does not catch, the code that would roll it back is the code that is broken. That is why verification happens before the swap and why the previous version is kept — recovery is one `mv`, not a reinstall.
 
 If the extensions directory is not writable, the update is queued instead and `install-queued.sh` performs the same swap out of band.
