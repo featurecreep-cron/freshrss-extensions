@@ -98,6 +98,8 @@ At no point do two directories carry a valid manifest, so the class is never dec
 
 Applying is deliberately separate from staging so that merely browsing never swaps the code out from under you. A staged copy you have changed your mind about is removed with **Discard**, which deletes it and leaves the running version untouched.
 
+Extension Manager moves between branches the same way every other extension does, through the same two steps: in a section whose branch is not the one the running copy came from the button reads **Download from `<branch>`**, and applying it reads **Apply switch** rather than Apply update, because a move between branches is often a downgrade.
+
 **What this cannot do:** if a staged copy is broken in a way the verifier does not catch, the code that would roll it back is the code that is broken. That is why verification happens before the swap and why the previous version is kept — recovery is one `mv`, not a reinstall.
 
 If the extensions directory is not writable, the update is queued instead and `install-queued.sh` performs the same swap out of band.

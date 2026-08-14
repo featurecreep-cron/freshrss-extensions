@@ -581,7 +581,12 @@
     if (pendingSelf) {
       var wrap = document.createElement('span');
       wrap.className = 'ext-mgr-self-pending';
-      wrap.appendChild(makeApplyButton(pendingSelf.version));
+      // Applying a copy from a different branch is a move, not an upgrade, and
+      // may well be a downgrade — the button should not call it an update.
+      var stagedIsSwitch = !!(info && (info.branch || info.source) &&
+        ((pendingSelf.branch || null) !== (info.branch || null) ||
+         (pendingSelf.source || null) !== (info.source || null)));
+      wrap.appendChild(makeApplyButton(pendingSelf.version, stagedIsSwitch));
       var note = document.createElement('span');
       note.className = 'ext-mgr-staged-note';
       note.textContent = (pendingSelf.version || 'staged') +
@@ -595,23 +600,36 @@
     }
 
     var newer = info && compareVersions(String(ext.version), info.version) > 0;
-    if (isAdmin && isWritable && newer) {
-      return makeInstallButton('Download update', null, ext.name, ext.dir, catalogToken);
+    // Same test the other rows use: an installed copy whose origin is not this
+    // section's source can be moved here whatever the version order says. This
+    // row used to check the version alone, which left Extension Manager with
+    // exactly the one-way door that branch switching was added to remove —
+    // installed from develop, viewing main at the same version, no way back.
+    var originKnown = !!(info && (info.source || info.branch));
+    var fromOtherSource = originKnown &&
+      ((info.source || null) !== (ext.url || null) || (info.branch || null) !== (ext.branch || null));
+
+    if (isAdmin && isWritable && (newer || fromOtherSource)) {
+      var label = fromOtherSource ? 'Download from ' + (ext.branch || 'this source') : 'Download update';
+      return makeInstallButton(label, null, ext.name, ext.dir, catalogToken);
     }
 
     var badge = document.createElement('span');
     badge.className = 'ext-mgr-installed-badge';
     // Without a writable extensions directory the swap cannot happen at all,
     // and saying "(self)" would hide the reason.
-    badge.textContent = newer && !isWritable ? 'update available — run install-queued.sh' : '(self)';
+    badge.textContent = (newer || fromOtherSource) && !isWritable
+      ? 'available — run install-queued.sh'
+      : '(self)';
     return badge;
   }
 
-  function makeApplyButton(version) {
+  function makeApplyButton(version, isSwitch) {
+    var label = isSwitch ? 'Apply switch' : 'Apply update';
     var btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'ext-mgr-btn ext-mgr-switch';
-    btn.textContent = 'Apply update';
+    btn.textContent = label;
     btn.title = version ? 'Replace the running Extension Manager with the verified ' + version + ' copy' : '';
     btn.addEventListener('click', function () {
       btn.disabled = true;
@@ -621,12 +639,12 @@
           window.location.reload();
         } else {
           btn.disabled = false;
-          btn.textContent = 'Apply update';
+          btn.textContent = label;
           showNotification(data.error || 'Could not apply the update', true);
         }
       }).catch(function (err) {
         btn.disabled = false;
-        btn.textContent = 'Apply update';
+        btn.textContent = label;
         showNotification('Error: ' + err.message, true);
       });
     });
@@ -657,7 +675,11 @@
   }
 
   function makeInstallButton(label, extUrl, extName, extDir, catalogToken) {
-    var isSwitch = label.indexOf('Switch') === 0;
+    // "Download from <branch>" moves between sources like Switch does, so it
+    // gets the same colour — the green install button should mean "this is not
+    // installed yet", nothing else.
+    var isDownload = label.indexOf('Download') === 0;
+    var isSwitch = label.indexOf('Switch') === 0 || label.indexOf('Download from') === 0;
     var variant = label === 'Update' ? 'ext-mgr-update' : (isSwitch ? 'ext-mgr-switch' : 'ext-mgr-install');
     var btn = document.createElement('button');
     btn.type = 'button';
@@ -665,7 +687,10 @@
     btn.textContent = label;
     btn.addEventListener('click', function () {
       btn.disabled = true;
-      btn.textContent = label === 'Install' ? 'Installing...' : (isSwitch ? 'Switching...' : 'Updating...');
+      btn.textContent = label === 'Install' ? 'Installing...'
+        : isDownload ? 'Downloading...'
+        : isSwitch ? 'Switching...'
+        : 'Updating...';
 
       var params = {};
       if (extDir && catalogToken) {
