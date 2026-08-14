@@ -98,7 +98,9 @@ At no point do two directories carry a valid manifest, so the class is never dec
 
 Applying is deliberately separate from staging so that merely browsing never swaps the code out from under you. A staged copy you have changed your mind about is removed with **Discard**, which deletes it and leaves the running version untouched.
 
-Extension Manager moves between branches the same way every other extension does, through the same two steps: in a section whose branch is not the one the running copy came from the button reads **Download from `<branch>`**, and applying it reads **Apply switch** rather than Apply update, because a move between branches is often a downgrade.
+Extension Manager moves between branches the same way every other extension does, and says so: in a section whose branch is not the one the running copy came from, the button reads **Switch to `<branch>`** — the same wording every other row uses. Calling it a download or an update would advertise an update that does not exist, since the other branch is frequently at the same version or behind.
+
+The switch still needs the two steps, because self-replacement can never be a copy over the running tree: **Switch to `<branch>`** stages and verifies, then **Apply switch** performs the swap. Only a genuinely higher version on the branch you are already on is offered as **Download update**.
 
 **What this cannot do:** if a staged copy is broken in a way the verifier does not catch, the code that would roll it back is the code that is broken. That is why verification happens before the swap and why the previous version is kept — recovery is one `mv`, not a reinstall.
 
