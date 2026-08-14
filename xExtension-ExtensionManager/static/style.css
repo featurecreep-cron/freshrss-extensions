@@ -14,6 +14,10 @@
 
 .ext-mgr-install { background: #4CAF50; color: #fff !important; border-color: #43A047; }
 .ext-mgr-update { background: #FF9800; color: #fff !important; border-color: #F57C00; }
+/* Switching sources replaces the installed copy with one from a different
+   branch, which may be a downgrade — distinct from the green install and the
+   orange update so it is not clicked by reflex. */
+.ext-mgr-switch { background: #5C6BC0; color: #fff !important; border-color: #3F51B5; }
 .ext-mgr-done { background: transparent; color: inherit !important; border-color: currentColor; cursor: default; opacity: 0.6; }
 .ext-mgr-queued { background: #1976D2; color: #fff !important; border-color: #1565C0; cursor: default; }
 

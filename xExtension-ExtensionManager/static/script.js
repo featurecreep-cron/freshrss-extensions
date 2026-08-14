@@ -538,7 +538,22 @@
         selfBadge.textContent = '(self)';
         tdAction.appendChild(selfBadge);
       } else if (info) {
-        if (isAdmin && compareVersions(String(ext.version), info.version) > 0) {
+        // Only one copy can be installed, so a section whose source is not the
+        // one the installed copy came from offers a switch rather than an
+        // update. Without this the action cell keys on version alone: with the
+        // same version on both branches it shows a bare "Installed" badge and
+        // there is no way back, and with the other branch ahead the comparison
+        // is against a version this section does not have. Origin unknown
+        // (installed before source markers, no sidecar) falls through to the
+        // version comparison \u2014 an install we cannot place is not evidence that
+        // it came from somewhere else.
+        var originKnown = !!(info.source || info.branch);
+        var fromOtherSource = originKnown &&
+          ((info.source || null) !== (ext.url || null) || (info.branch || null) !== (ext.branch || null));
+
+        if (isAdmin && fromOtherSource) {
+          tdAction.appendChild(makeInstallButton('Switch to ' + (ext.branch || 'this source'), null, ext.name, ext.dir, catalogToken));
+        } else if (isAdmin && compareVersions(String(ext.version), info.version) > 0) {
           tdAction.appendChild(makeInstallButton('Update', null, ext.name, ext.dir, catalogToken));
         } else {
           var badge = document.createElement('span');
@@ -559,13 +574,15 @@
   }
 
   function makeInstallButton(label, extUrl, extName, extDir, catalogToken) {
+    var isSwitch = label.indexOf('Switch') === 0;
+    var variant = label === 'Update' ? 'ext-mgr-update' : (isSwitch ? 'ext-mgr-switch' : 'ext-mgr-install');
     var btn = document.createElement('button');
     btn.type = 'button';
-    btn.className = 'ext-mgr-btn ' + (label === 'Update' ? 'ext-mgr-update' : 'ext-mgr-install');
+    btn.className = 'ext-mgr-btn ' + variant;
     btn.textContent = label;
     btn.addEventListener('click', function () {
       btn.disabled = true;
-      btn.textContent = label === 'Install' ? 'Installing...' : 'Updating...';
+      btn.textContent = label === 'Install' ? 'Installing...' : (isSwitch ? 'Switching...' : 'Updating...');
 
       var params = {};
       if (extDir && catalogToken) {
@@ -586,7 +603,7 @@
           } else {
             btn.textContent = '\u2713 Done';
             btn.className = 'ext-mgr-btn ext-mgr-done';
-            showNotification(extName + ' ' + (label === 'Install' ? 'installed' : 'updated'));
+            showNotification(extName + ' ' + (label === 'Install' ? 'installed' : (isSwitch ? 'switched to ' + label.replace(/^Switch to /, '') : 'updated')));
             setTimeout(function () { window.location.reload(); }, 1500);
           }
         } else {
