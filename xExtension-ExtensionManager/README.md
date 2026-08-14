@@ -72,6 +72,8 @@ In a section whose branch is not the one the installed copy came from, the actio
 
 The switch is offered on the difference in origin, not on version order — you can move back to a branch that is behind the one you are on, which is the usual case after testing something on `develop`. Because that can be a downgrade, the button is coloured differently from Install and Update.
 
+It is only offered when it would change something you can see. A side branch holding the same version as your install is the same code, so that row stays quiet rather than advertising a move to identical files — with one exception: `main`/`master` always offers a way back, so an install that has drifted onto a branch is never stranded there. A side branch therefore reappears as a switch as soon as it is genuinely ahead or behind.
+
 An extension installed before source tracking existed has no recorded origin. Those keep the old behaviour — Update when a newer version is available — since an install that cannot be placed is not evidence that it came from somewhere else.
 
 ## Updating Extension Manager itself
