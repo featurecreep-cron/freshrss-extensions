@@ -579,6 +579,20 @@
   // is a reload, even though applying ends in one.
   function selfAction(ext, info, catalogToken) {
     if (pendingSelf) {
+      // There is one staged copy, not one per section, so Apply belongs only to
+      // the section it came from. Rendering it everywhere made every source
+      // look like it had something waiting, and two sections offering to apply
+      // different things is a claim the staging area cannot honour.
+      var stagedHere = (pendingSelf.source || null) === (ext.url || null) &&
+        (pendingSelf.branch || null) === (ext.branch || null);
+      if (!stagedHere) {
+        var elsewhere = document.createElement('span');
+        elsewhere.className = 'ext-mgr-staged-note';
+        elsewhere.textContent = 'staged from ' + (pendingSelf.branch || 'another source');
+        elsewhere.title = 'Only one copy can be staged at a time — apply or discard it in that section first';
+        return elsewhere;
+      }
+
       var wrap = document.createElement('span');
       wrap.className = 'ext-mgr-self-pending';
       // Applying a copy from a different branch is a move, not an upgrade, and
