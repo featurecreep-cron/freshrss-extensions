@@ -44,6 +44,10 @@
 
   // ========== Filter Map ==========
 
+  function keywordKey(value, scope) {
+    return (scope || 'title') + '\u0000' + value.toLowerCase();
+  }
+
   function buildFilterMap() {
     filterMap = { authors: {}, tags: {}, keywords: {} };
     filters.forEach(function (f) {
@@ -52,7 +56,10 @@
       } else if (f.type === 'tag') {
         filterMap.tags[f.value.toLowerCase()] = { action: f.action, search: f.search };
       } else if (f.type === 'keyword') {
-        filterMap.keywords[f.value.toLowerCase()] = { action: f.action, search: f.search };
+        // Keyed by scope as well as value: "rust" in titles and "rust" in bodies
+        // are two different rules and must not overwrite each other here.
+        filterMap.keywords[keywordKey(f.value, f.scope)] =
+          { action: f.action, search: f.search, scope: f.scope || 'title', value: f.value };
       }
     });
   }
@@ -241,7 +248,11 @@
     activeBtn.disabled = true;
     otherBtn.disabled = true;
 
-    var key = value.toLowerCase();
+    // Keywords are keyed by scope + value now. Inline controls only ever exist for
+    // authors and tags, so this branch is unreachable today — left consistent
+    // anyway, because a lookup that silently misses is how the last two one-way
+    // doors in this repo survived a review.
+    var key = type === 'keyword' ? keywordKey(value, 'title') : value.toLowerCase();
     var mapObj = type === 'author' ? filterMap.authors :
                  type === 'tag' ? filterMap.tags : filterMap.keywords;
     var existing = mapObj[key];
@@ -342,18 +353,22 @@
   // ========== Title Keyword Highlighting ==========
 
   function highlightTitleKeywords(article) {
-    var keywords = Object.keys(filterMap.keywords);
-    if (keywords.length === 0) return;
+    // Only rules that read the title. Painting a match for an article-body rule
+    // would claim the title is why the article was filtered, which it was not.
+    // Iterated as entries, not keys: a key carries its scope, and the thing to
+    // search the title for is the keyword itself.
+    var rules = Object.keys(filterMap.keywords)
+      .map(function (k) { return filterMap.keywords[k]; })
+      .filter(function (info) { return info.scope !== 'article'; });
+    if (rules.length === 0) return;
 
     var titleEl = article.querySelector('.title .item-element');
     if (!titleEl) return;
 
-    var text = titleEl.textContent;
     var html = titleEl.innerHTML;
 
-    keywords.forEach(function (kw) {
-      var info = filterMap.keywords[kw];
-      var regex = new RegExp('(' + escapeRegex(kw) + ')', 'gi');
+    rules.forEach(function (info) {
+      var regex = new RegExp('(' + escapeRegex(info.value) + ')', 'gi');
       var cls = info.action === 'star' ? 'qf-highlight-positive' : 'qf-highlight-negative';
       html = html.replace(regex, '<span class="' + cls + '">$1</span>');
     });
@@ -404,7 +419,15 @@
     btn.type = 'button';
     btn.className = 'qf-manager-btn';
     btn.title = 'Manage filters';
-    btn.innerHTML = '&#9661;'; // ▽ filter
+    // A funnel, not a caret. This opens the filter manager; a down-pointing
+    // triangle reads as a drop-down menu that is about to unroll under it.
+    // Drawn inline rather than pulled from ../themes/icons — FreshRSS ships no
+    // filter glyph at 1.28 or 1.29 — and painted in currentColor so it takes
+    // the nav menu's colour in every theme.
+    btn.innerHTML = '<svg class="qf-manager-icon" viewBox="0 0 16 16" width="14" height="14" ' +
+      'aria-hidden="true" focusable="false"><path fill="currentColor" ' +
+      'd="M1.5 2h13a.5.5 0 0 1 .38.82L10 8.7V13a.5.5 0 0 1-.72.45l-2.5-1.25A.5.5 0 0 1 6.5 ' +
+      '11.75V8.7L1.12 2.82A.5.5 0 0 1 1.5 2z"/></svg>';
     btn.setAttribute('aria-label', 'Open filter manager');
     btn.addEventListener('click', function () {
       if (feedId <= 0) {
@@ -497,7 +520,10 @@
 
         var desc = document.createElement('span');
         desc.className = 'qf-rule-desc';
-        desc.textContent = f.type + ': ' + f.value;
+        // A keyword row without its scope is the bug this release fixes, one step
+        // removed: two rules reading "keyword: rust" that behave differently.
+        desc.textContent = f.type + ': ' + f.value +
+          (f.type === 'keyword' && f.scope ? ' (' + scopeLabel(f.scope) + ')' : '');
         li.appendChild(desc);
 
         var actions = document.createElement('span');
@@ -508,7 +534,7 @@
         runBtn.className = 'qf-btn-small';
         runBtn.textContent = 'Apply to past articles';
         runBtn.addEventListener('click', function () {
-          openPreview(f.type, f.value, f.action);
+          openPreview(f.type, f.value, f.action, false, f.scope || null);
         });
         actions.appendChild(runBtn);
 
@@ -518,12 +544,14 @@
         delBtn.textContent = 'Delete';
         delBtn.addEventListener('click', function () {
           if (!confirm('Remove filter: ' + f.type + ' "' + f.value + '"?')) return;
-          serializedApiCall('remove', {
+          var params = {
             feedId: feedId,
             type: f.type,
             value: f.value,
             action: f.action,
-          }).then(function (data) {
+          };
+          if (f.scope) params.scope = f.scope;
+          serializedApiCall('remove', params).then(function (data) {
             if (data.filters) {
               updateFiltersFromServer(data.filters);
               refreshPanel();
@@ -592,6 +620,26 @@
     valueRow.appendChild(valueInput);
     formFields.appendChild(valueRow);
 
+    // Scope selector — keywords only. Author and tag have nothing to scope: core
+    // matches them against their own fields. Default title, which is what every
+    // keyword filter written before this existed already means.
+    var scopeRow = createFormRow('Match in');
+    var scopeSelect = document.createElement('select');
+    scopeSelect.className = 'qf-select qf-scope-select';
+    [
+      ['title', 'Title'],
+      ['article', 'Article body'],
+      ['both', 'Title or body']
+    ].forEach(function (pair) {
+      var opt = document.createElement('option');
+      opt.value = pair[0];
+      opt.textContent = pair[1];
+      scopeSelect.appendChild(opt);
+    });
+    scopeRow.appendChild(scopeSelect);
+    scopeRow.style.display = 'none';
+    formFields.appendChild(scopeRow);
+
     // Action selector
     var actionRow = createFormRow('Action');
     var actionSelect = document.createElement('select');
@@ -634,7 +682,7 @@
       var type = typeSelect.value;
       var value = type === 'keyword' ? valueInput.value.trim() : valueSelect.value;
       if (!value) { showNotification('Select a value', true); return; }
-      openPreview(type, value, actionSelect.value);
+      openPreview(type, value, actionSelect.value, false, currentScope(type, scopeSelect));
     });
     btnRow.appendChild(previewBtn);
 
@@ -652,18 +700,24 @@
       saveBtn.disabled = true;
       saveBtn.textContent = 'Saving...';
 
-      serializedApiCall('add', {
+      var scope = currentScope(type, scopeSelect);
+      var addParams = {
         feedId: feedId,
         type: type,
         value: value,
         action: action,
-      }).then(function (data) {
+      };
+      // Omitted rather than sent as null: URLSearchParams stringifies null to
+      // "null", which the server would read as a scope and reject.
+      if (scope) addParams.scope = scope;
+
+      serializedApiCall('add', addParams).then(function (data) {
         if (data.filters) {
           updateFiltersFromServer(data.filters);
 
           // Apply to existing if checked
           if (applyCheckbox.checked) {
-            openPreview(type, value, action, true);
+            openPreview(type, value, action, true, scope);
           }
 
           refreshPanel();
@@ -688,9 +742,11 @@
       if (typeSelect.value === 'keyword') {
         valueSelect.style.display = 'none';
         valueInput.style.display = '';
+        scopeRow.style.display = '';
       } else {
         valueSelect.style.display = '';
         valueInput.style.display = 'none';
+        scopeRow.style.display = 'none';
         populateValueDropdown(typeSelect.value, valueSelect);
       }
     });
@@ -757,15 +813,29 @@
 
   // ========== Preview ==========
 
-  function openPreview(type, value, action, autoApply) {
-    apiGet('preview', { feedId: feedId, type: type, value: value }).then(function (data) {
-      showPreviewDialog(type, value, action, data, autoApply);
+  // Scope is a property of keyword rules only. Sending one for an author or tag
+  // would be noise the server has to ignore, so it is dropped here rather than
+  // defended against on both sides.
+  function currentScope(type, scopeSelect) {
+    return type === 'keyword' ? scopeSelect.value : null;
+  }
+
+  function scopeLabel(scope) {
+    return scope === 'article' ? 'article body' :
+           scope === 'both' ? 'title or body' : 'title';
+  }
+
+  function openPreview(type, value, action, autoApply, scope) {
+    var params = { feedId: feedId, type: type, value: value };
+    if (scope) params.scope = scope;
+    apiGet('preview', params).then(function (data) {
+      showPreviewDialog(type, value, action, data, autoApply, scope);
     }).catch(function (err) {
       showNotification(err.error || 'Failed to load preview', true);
     });
   }
 
-  function showPreviewDialog(type, value, action, data, autoApply) {
+  function showPreviewDialog(type, value, action, data, autoApply, scope) {
     var overlay = document.createElement('div');
     overlay.className = 'qf-overlay';
 
@@ -774,7 +844,8 @@
     dialog.setAttribute('role', 'dialog');
 
     var title = document.createElement('h3');
-    title.textContent = data.count + ' articles match: ' + type + ' "' + value + '"';
+    title.textContent = data.count + ' articles match: ' + type + ' "' + value + '"' +
+      (scope ? ' in ' + scopeLabel(scope) : '');
     dialog.appendChild(title);
 
     if (data.articles && data.articles.length > 0) {
@@ -799,7 +870,7 @@
       applyBtn.addEventListener('click', function () {
         applyBtn.disabled = true;
         applyBtn.textContent = 'Applying...';
-        applyRetroactive(type, value, action, 0, function (total) {
+        applyRetroactive(type, value, action, 0, scope, function (total) {
           applyBtn.textContent = 'Applied to ' + total + ' articles';
           setTimeout(function () { overlay.remove(); }, 1500);
         });
@@ -825,16 +896,18 @@
     }
   }
 
-  function applyRetroactive(type, value, action, offset, onComplete) {
-    serializedApiCall('apply', {
+  function applyRetroactive(type, value, action, offset, scope, onComplete) {
+    var params = {
       feedId: feedId,
       type: type,
       value: value,
       action: action,
       offset: offset,
-    }).then(function (data) {
+    };
+    if (scope) params.scope = scope;
+    serializedApiCall('apply', params).then(function (data) {
       if (data.hasMore) {
-        applyRetroactive(type, value, action, data.offset, onComplete);
+        applyRetroactive(type, value, action, data.offset, scope, onComplete);
       } else {
         onComplete(data.offset);
       }
@@ -850,7 +923,10 @@
 
     var banner = document.createElement('div');
     banner.className = 'qf-banner';
-    banner.innerHTML = '<span>QuickFilter: use the &#9734;/&#10003; icons next to authors and tags to create filters.</span>';
+    // Names both routes in. The old banner mentioned only the inline icons, which
+    // left keyword filters — the one thing reachable nowhere else — undiscoverable.
+    banner.innerHTML = '<span>QuickFilter: use the &#9734;/&#10003; icons next to authors ' +
+      'and tags, or the funnel icon in the nav bar for keyword filters.</span>';
 
     var dismiss = document.createElement('button');
     dismiss.type = 'button';
