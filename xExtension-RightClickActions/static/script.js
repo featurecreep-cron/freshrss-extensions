@@ -270,10 +270,46 @@
 
   // FreshRSS reads a bare `intitle:two words` as intitle:two AND a loose
   // "words", so a keyword lifted from an article title — which is exactly what
-  // the prompt pre-fills — has to be quoted or the saved rule matches far more
-  // than the user asked for. Mirrors QuickFilterService::buildFilterString().
-  function buildTitleFilter(keyword) {
-    return 'intitle:"' + keyword.replace(/"/g, '\\"') + '"';
+  // the dialog pre-fills — has to be quoted or the saved rule matches far more
+  // than the user asked for. Mirrors QuickFilterService::buildFilterString(),
+  // including which operator carries which scope: intitle: reads the title,
+  // intext: the stored content, a bare term either of them.
+  function buildKeywordFilter(keyword, scope) {
+    var escaped = keyword.replace(/"/g, '\\"');
+    if (scope === 'article') return 'intext:"' + escaped + '"';
+    if (scope === 'both') {
+      // The bare term is the only form with no operator in front of it, so a
+      // value shaped like one cannot be told apart from one after a round trip:
+      // FreshRSS stores "#rust" correctly and matches the right articles, but
+      // Search::__toString() drops quotes it no longer needs and the rule reads
+      // back as a tag. Refused rather than silently mislabelled.
+      if (/^[#!-]|^[A-Za-z]+:/.test(keyword)) {
+        throw new Error('A title-or-body keyword cannot start with # or - or contain a word ' +
+          'followed by a colon — FreshRSS reads those as search operators. Pick Title or ' +
+          'Article body instead.');
+      }
+      return '"' + escaped + '"';
+    }
+    return 'intitle:"' + escaped + '"';
+  }
+
+  // The article body is in the stream for every entry, not just the open one —
+  // app/views/helpers/index/article.phtml renders .text unconditionally inside
+  // .flux_content .content — so the on-page sweep can read it without opening
+  // anything. Note it reads rendered text while FreshRSS's own intext: matches
+  // the stored HTML, so the server, which has the last word, can match markup
+  // this cannot see.
+  function articleBodyText(flux) {
+    var el = flux.querySelector('.flux_content .content .text') ||
+             flux.querySelector('.content .text');
+    return el ? el.textContent : '';
+  }
+
+  function fluxMatches(flux, lowerKeyword, scope) {
+    var inTitle = articleTitleText(flux).toLowerCase().indexOf(lowerKeyword) !== -1;
+    if (scope === 'title') return inTitle;
+    var inBody = articleBodyText(flux).toLowerCase().indexOf(lowerKeyword) !== -1;
+    return scope === 'article' ? inBody : (inTitle || inBody);
   }
 
   // The title anchor is not only the title: FreshRSS nests its inline
@@ -292,40 +328,149 @@
     return text || a.textContent.trim();
   }
 
-  var FILTER_PROMPTS = {
-    read: 'Hide articles with titles containing:',
-    star: 'Star articles with titles containing:'
+  var FILTER_HEADINGS = {
+    read: 'Hide articles containing',
+    star: 'Star articles containing'
   };
+
+  var SCOPES = [
+    ['title', 'the title'],
+    ['article', 'the article body'],
+    ['both', 'the title or the body']
+  ];
+
+  // A native prompt() cannot carry a second control, and the old one had to name
+  // the title in its question because that was the only thing it could filter on.
+  // Now that scope is a choice, the question stops claiming to know the answer.
+  function openFilterDialog(action, prefill, onConfirm) {
+    // handleAction() runs before hideMenu(), so targetFlux is still set while this
+    // is called — but it is null by the time the dialog is confirmed. Everything
+    // the callback needs is captured by the caller before we get here; nothing
+    // below may read it.
+    var previousFocus = document.activeElement;
+
+    var overlay = document.createElement('div');
+    overlay.className = 'rca-overlay';
+
+    var dialog = document.createElement('div');
+    dialog.className = 'rca-dialog';
+    // Same theme test the context menu uses, for the same reason: FreshRSS themes
+    // do not expose a variable we can read, so the background is sampled.
+    if (isDark()) dialog.classList.add('frss-dark');
+    dialog.setAttribute('role', 'dialog');
+    dialog.setAttribute('aria-modal', 'true');
+    dialog.setAttribute('aria-label', FILTER_HEADINGS[action]);
+
+    var heading = document.createElement('h3');
+    heading.className = 'rca-dialog-title';
+    heading.textContent = FILTER_HEADINGS[action];
+    dialog.appendChild(heading);
+
+    var input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'rca-dialog-input';
+    input.value = prefill || '';
+    dialog.appendChild(input);
+
+    var scopeLabel = document.createElement('label');
+    scopeLabel.className = 'rca-dialog-label';
+    scopeLabel.textContent = 'Match in';
+    var scopeSelect = document.createElement('select');
+    scopeSelect.className = 'rca-dialog-select';
+    SCOPES.forEach(function (pair) {
+      var opt = document.createElement('option');
+      opt.value = pair[0];
+      opt.textContent = pair[1];
+      scopeSelect.appendChild(opt);
+    });
+    scopeLabel.appendChild(scopeSelect);
+    dialog.appendChild(scopeLabel);
+
+    var actions = document.createElement('div');
+    actions.className = 'rca-dialog-actions';
+
+    var cancelBtn = document.createElement('button');
+    cancelBtn.type = 'button';
+    cancelBtn.className = 'rca-dialog-btn';
+    cancelBtn.textContent = 'Cancel';
+    cancelBtn.addEventListener('click', close);
+    actions.appendChild(cancelBtn);
+
+    var okBtn = document.createElement('button');
+    okBtn.type = 'button';
+    okBtn.className = 'rca-dialog-btn rca-dialog-btn-primary';
+    okBtn.textContent = action === 'star' ? 'Star' : 'Hide';
+    okBtn.addEventListener('click', confirm);
+    actions.appendChild(okBtn);
+
+    dialog.appendChild(actions);
+    overlay.appendChild(dialog);
+    document.body.appendChild(overlay);
+
+    // Selected, not just focused: the field is pre-filled with a whole headline
+    // and the usual next move is to cut it down to one word.
+    input.focus();
+    input.select();
+
+    overlay.addEventListener('mousedown', function (e) {
+      if (e.target === overlay) close();
+    });
+    dialog.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') { e.preventDefault(); close(); }
+      if (e.key === 'Enter' && e.target === input) { e.preventDefault(); confirm(); }
+    });
+
+    function close() {
+      if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+      if (previousFocus && typeof previousFocus.focus === 'function') previousFocus.focus();
+    }
+
+    // The dialog stays open on a rejected keyword. Closing it would throw away
+    // what the user typed to tell them it was wrong.
+    function confirm() {
+      var keyword = input.value.trim();
+      if (!keyword) { input.focus(); return; }
+      var scope = scopeSelect.value;
+      var filter;
+      try {
+        filter = buildKeywordFilter(keyword, scope);
+      } catch (err) {
+        showNotification(err.message, true);
+        input.focus();
+        return;
+      }
+      close();
+      onConfirm(keyword, scope, filter);
+    }
+  }
 
   function filterOnTitle(action, fluxes) {
     var articleTitle = articleTitleText(targetFlux);
     var feedId = targetFlux.dataset.feed;
+    if (!feedId) return;
 
-    var keyword = prompt(FILTER_PROMPTS[action], articleTitle);
-    if (keyword === null) return;
-    keyword = keyword.trim();
-    if (!keyword || !feedId) return;
+    openFilterDialog(action, articleTitle, function (keyword, scope, filter) {
+      addPermanentFilter(feedId, filter, action);
 
-    addPermanentFilter(feedId, buildTitleFilter(keyword), action);
-
-    // Apply it to what is already on screen. The server pass covers the rest of
-    // the feed but cannot touch this page's DOM. Scoped to the same feed as the
-    // saved rule — matching titles in other feeds are not what was asked for,
-    // and the rule will never act on them again.
-    var lower = keyword.toLowerCase();
-    var matched = 0;
-    fluxes.forEach(function (f) {
-      if (f.dataset.feed !== feedId) return;
-      if (articleTitleText(f).toLowerCase().indexOf(lower) !== -1) {
-        if (action === 'star') setStar(f, true);
-        else setRead(f, true);
-        matched++;
+      // Apply it to what is already on screen. The server pass covers the rest of
+      // the feed but cannot touch this page's DOM. Scoped to the same feed as the
+      // saved rule — matching articles in other feeds are not what was asked for,
+      // and the rule will never act on them again.
+      var lower = keyword.toLowerCase();
+      var matched = 0;
+      fluxes.forEach(function (f) {
+        if (f.dataset.feed !== feedId) return;
+        if (fluxMatches(f, lower, scope)) {
+          if (action === 'star') setStar(f, true);
+          else setRead(f, true);
+          matched++;
+        }
+      });
+      if (matched > 0) {
+        showNotification(matched + ' article' + (matched === 1 ? '' : 's') +
+          (action === 'star' ? ' starred' : ' marked read') + ' on page');
       }
     });
-    if (matched > 0) {
-      showNotification(matched + ' article' + (matched === 1 ? '' : 's') +
-        (action === 'star' ? ' starred' : ' marked read') + ' on page');
-    }
   }
 
   // ---------- Sidebar helpers ----------
