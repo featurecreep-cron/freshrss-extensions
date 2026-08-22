@@ -85,3 +85,104 @@
 .rca-actions { padding-left: 1.5em; }
 .rca-actions.rca-disabled { opacity: 0.4; }
 .rca-group-label { margin-top: 0.5em; margin-bottom: 0.2em; font-size: 0.85em; color: inherit; opacity: 0.6; font-weight: 600; }
+
+/* ── Filter dialog ── */
+
+/* Below the notification's 99999 so a rejected keyword's message is readable
+   over the dialog that is still holding what was typed. */
+.rca-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 99998;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, .45);
+}
+
+.rca-dialog {
+  width: min(420px, calc(100vw - 32px));
+  padding: 18px;
+  border-radius: 8px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-size: 13px;
+  background: #fff;
+  color: #222;
+  border: 1px solid #d0d0d0;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, .25);
+}
+
+.rca-dialog.frss-dark {
+  background: #2b2f36;
+  color: #e6e6e6;
+  border-color: #555;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, .6);
+}
+
+.rca-dialog-title {
+  margin: 0 0 12px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.rca-dialog-input,
+.rca-dialog-select {
+  width: 100%;
+  padding: 7px 9px;
+  border-radius: 5px;
+  font: inherit;
+  color: inherit;
+  background: transparent;
+  border: 1px solid #c8c8c8;
+  box-sizing: border-box;
+}
+
+.rca-dialog.frss-dark .rca-dialog-input,
+.rca-dialog.frss-dark .rca-dialog-select {
+  border-color: #5a5a5a;
+  background: #21252b;
+}
+
+.rca-dialog-label {
+  display: block;
+  margin-top: 12px;
+  font-size: 12px;
+  opacity: .75;
+}
+
+.rca-dialog-label .rca-dialog-select {
+  margin-top: 4px;
+  opacity: 1;
+}
+
+.rca-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 18px;
+}
+
+.rca-dialog-btn {
+  padding: 7px 14px;
+  border-radius: 5px;
+  font: inherit;
+  cursor: pointer;
+  color: inherit;
+  background: transparent;
+  border: 1px solid #c8c8c8;
+}
+
+.rca-dialog.frss-dark .rca-dialog-btn {
+  border-color: #5a5a5a;
+}
+
+.rca-dialog-btn-primary {
+  background: #1976d2;
+  border-color: #1976d2;
+  color: #fff;
+}
+
+.rca-dialog-btn:focus-visible {
+  outline: 2px solid #1976d2;
+  outline-offset: 1px;
+}
