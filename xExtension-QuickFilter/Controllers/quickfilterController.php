@@ -29,7 +29,8 @@ final class FreshExtension_quickfilter_Controller extends Minz_ActionController 
     /**
      * POST ?c=quickfilter&a=add
      * Add a filter to a feed.
-     * Params: feedId, type (author|tag|keyword), value, action (read|star)
+     * Params: feedId, type (author|tag|keyword), value, action (read|star),
+     *         scope (title|article|both, keywords only, default title)
      */
     public function addAction(): void {
         if (!Minz_Request::isPost()) {
@@ -46,7 +47,7 @@ final class FreshExtension_quickfilter_Controller extends Minz_ActionController 
         }
 
         try {
-            $result = QuickFilterService::addFilter($feedId, $type, $value, $action);
+            $result = QuickFilterService::addFilter($feedId, $type, $value, $action, $this->scopeParam());
             $this->sendJson(['success' => true, 'filters' => $result['filters']]);
         } catch (InvalidArgumentException $e) {
             $this->sendJson(['error' => $e->getMessage()], 400);
@@ -56,7 +57,8 @@ final class FreshExtension_quickfilter_Controller extends Minz_ActionController 
     /**
      * POST ?c=quickfilter&a=remove
      * Remove a filter from a feed.
-     * Params: feedId, type (author|tag|keyword), value, action (read|star)
+     * Params: feedId, type (author|tag|keyword), value, action (read|star),
+     *         scope (title|article|both, keywords only, default title)
      */
     public function removeAction(): void {
         if (!Minz_Request::isPost()) {
@@ -73,7 +75,7 @@ final class FreshExtension_quickfilter_Controller extends Minz_ActionController 
         }
 
         try {
-            $result = QuickFilterService::removeFilter($feedId, $type, $value, $action);
+            $result = QuickFilterService::removeFilter($feedId, $type, $value, $action, $this->scopeParam());
             $this->sendJson(['success' => true, 'filters' => $result['filters']]);
         } catch (InvalidArgumentException $e) {
             $this->sendJson(['error' => $e->getMessage()], 400);
@@ -113,7 +115,7 @@ final class FreshExtension_quickfilter_Controller extends Minz_ActionController 
         }
 
         try {
-            $result = QuickFilterService::previewMatches($feedId, $type, $value);
+            $result = QuickFilterService::previewMatches($feedId, $type, $value, scope: $this->scopeParam());
             $this->sendJson($result);
         } catch (InvalidArgumentException $e) {
             $this->sendJson(['error' => $e->getMessage()], 400);
@@ -141,11 +143,20 @@ final class FreshExtension_quickfilter_Controller extends Minz_ActionController 
         }
 
         try {
-            $result = QuickFilterService::applyToExisting($feedId, $type, $value, $action, $offset);
+            $result = QuickFilterService::applyToExisting($feedId, $type, $value, $action, $offset, scope: $this->scopeParam());
             $this->sendJson(['success' => true] + $result);
         } catch (InvalidArgumentException $e) {
             $this->sendJson(['error' => $e->getMessage()], 400);
         }
+    }
+
+    /**
+     * Keyword scope, defaulting to title so a client that does not send one keeps
+     * the behaviour every filter had before scopes existed. The service validates
+     * the value; an unknown one is a 400, not a silent fallback.
+     */
+    private function scopeParam(): string {
+        return Minz_Request::paramString('scope') ?: QuickFilterService::SCOPE_TITLE;
     }
 
     private function sendJson(array $data, int $code = 200): never {

@@ -161,6 +161,14 @@ a .qf-controls .qf-btn {
   transition: color 0.15s ease, background 0.15s ease;
 }
 
+/* The glyph is an inline SVG painted in currentColor, so it follows the button's
+   colour transitions on hover and focus without a second rule per state. */
+.qf-manager-icon {
+  display: block;
+  width: 14px;
+  height: 14px;
+}
+
 .qf-manager-btn:hover {
   color: var(--qf-text);
   background: var(--qf-hover-bg);
@@ -169,6 +177,13 @@ a .qf-controls .qf-btn {
 .qf-manager-btn:focus-visible {
   outline: 2px solid var(--qf-positive);
   outline-offset: 1px;
+}
+
+/* The scope row only exists for keyword filters, so it is hidden inline by the
+   script rather than by a class. This keeps its spacing identical to the rows it
+   sits between when it is shown. */
+.qf-scope-select {
+  width: 100%;
 }
 
 /* ── Filter Manager Panel ── */
