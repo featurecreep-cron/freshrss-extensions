@@ -2,8 +2,10 @@
       method="post">
     <input type="hidden" name="_csrf" value="<?= FreshRSS_Auth::csrfToken() ?>">
     <div class="form-group">
-        <p>QuickFilter adds inline filter controls to your article view. Star or auto-read articles by author, tag, or keyword.</p>
-        <p>Filter icons appear next to author names and tags. Use the gear icon in the nav bar to open the filter manager.</p>
+        <p>QuickFilter adds inline filter controls to your article view. Star or auto-read articles by author, tag, or keyword. Every rule it writes is an ordinary FreshRSS filter action on the feed, so anything you add here is visible and editable in the feed&rsquo;s own settings.</p>
+        <p>&#9734;/&#10003; controls appear next to author names and tags while the pointer is over an article. Tag controls need <em>Show tags</em> turned on in your display settings.</p>
+        <p>The funnel icon in the nav bar opens the filter manager, which is the only place keyword filters can be created. It needs a single feed open &mdash; from a category or &ldquo;all articles&rdquo; there is no feed to attach a rule to.</p>
+        <p>A keyword filter matches the <strong>title</strong>, the <strong>article body</strong>, or <strong>either</strong>. Title is the default. FreshRSS matches all three as case-insensitive substrings, as articles arrive &mdash; use <em>Apply to past articles</em> for ones already fetched.</p>
     </div>
     <div class="form-group form-actions">
         <button type="submit" class="btn btn-important">Save</button>
