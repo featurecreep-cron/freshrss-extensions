@@ -539,19 +539,14 @@
       } else if (info) {
         // Only one copy can be installed, so a section whose source is not the
         // one the installed copy came from offers a switch rather than an
-        // update. Without this the action cell keys on version alone: with the
-        // same version on both branches it shows a bare "Installed" badge and
-        // there is no way back, and with the other branch ahead the comparison
-        // is against a version this section does not have. Origin unknown
-        // (installed before source markers, no sidecar) falls through to the
-        // version comparison \u2014 an install we cannot place is not evidence that
-        // it came from somewhere else.
-        var originKnown = !!(info.source || info.branch);
-        var fromOtherSource = originKnown &&
-          ((info.source || null) !== (ext.url || null) || (info.branch || null) !== (ext.branch || null));
+        // update \u2014 see branchMoveLabel() for when that offer is worth making.
+        // Origin unknown (installed before source markers, no sidecar) falls
+        // through to the version comparison: an install we cannot place is not
+        // evidence that it came from somewhere else.
+        var moveLabel = branchMoveLabel(info, ext);
 
-        if (isAdmin && fromOtherSource) {
-          tdAction.appendChild(makeInstallButton('Switch to ' + (ext.branch || 'this source'), null, ext.name, ext.dir, catalogToken));
+        if (isAdmin && moveLabel) {
+          tdAction.appendChild(makeInstallButton(moveLabel, null, ext.name, ext.dir, catalogToken));
         } else if (isAdmin && compareVersions(String(ext.version), info.version) > 0) {
           tdAction.appendChild(makeInstallButton('Update', null, ext.name, ext.dir, catalogToken));
         } else {
@@ -577,6 +572,32 @@
   // verifies a copy alongside the running one, Apply update swaps them at the
   // start of the next request. Each button says what it does; neither of them
   // is a reload, even though applying ends in one.
+  // The one place that decides whether a row offers to move between sources.
+  // Both the ordinary rows and the Extension Manager row call it — last time
+  // the self row had its own copy of this test, it kept a one-way door through
+  // two releases.
+  //
+  // Origin differing is not on its own a reason to offer anything: with develop
+  // fast-forwarded to main, every row was offering to switch to byte-identical
+  // code, which reads as an available update. So the offer needs a difference
+  // the user can see — a different version — with one exception: the release
+  // branch always offers a way back, or an install that has drifted onto a side
+  // branch at the same version has no route home.
+  function branchMoveLabel(info, ext) {
+    var originKnown = !!(info && (info.source || info.branch));
+    if (!originKnown) return null;
+
+    var differentSource = (info.source || null) !== (ext.url || null) ||
+      (info.branch || null) !== (ext.branch || null);
+    if (!differentSource) return null;
+
+    var versionsDiffer = compareVersions(String(ext.version), String(info.version)) !== 0;
+    var isReleaseBranch = ext.branch === 'main' || ext.branch === 'master';
+    if (!versionsDiffer && !isReleaseBranch) return null;
+
+    return 'Switch to ' + (ext.branch || 'this source');
+  }
+
   function selfAction(ext, info, catalogToken) {
     if (pendingSelf) {
       // There is one staged copy, not one per section, so Apply belongs only to
@@ -614,30 +635,20 @@
     }
 
     var newer = info && compareVersions(String(ext.version), info.version) > 0;
-    // Same test the other rows use: an installed copy whose origin is not this
-    // section's source can be moved here whatever the version order says. This
-    // row used to check the version alone, which left Extension Manager with
-    // exactly the one-way door that branch switching was added to remove —
-    // installed from develop, viewing main at the same version, no way back.
-    var originKnown = !!(info && (info.source || info.branch));
-    var fromOtherSource = originKnown &&
-      ((info.source || null) !== (ext.url || null) || (info.branch || null) !== (ext.branch || null));
+    // A move between sources is named for the move, never "update" — the other
+    // branch is usually level or behind, so anything reading like an update
+    // advertises one that does not exist.
+    var moveLabel = branchMoveLabel(info, ext);
 
-    if (isAdmin && isWritable && (newer || fromOtherSource)) {
-      // Origin wins over version here. A different branch is a move, and
-      // labelling it "Download update" advertises an update that does not
-      // exist — the same word every other row uses for a switch is the honest
-      // one, even though ours needs a second step to finish. Only a genuinely
-      // higher version on our own branch is an update.
-      var label = fromOtherSource ? 'Switch to ' + (ext.branch || 'this source') : 'Download update';
-      return makeInstallButton(label, null, ext.name, ext.dir, catalogToken);
+    if (isAdmin && isWritable && (newer || moveLabel)) {
+      return makeInstallButton(moveLabel || 'Download update', null, ext.name, ext.dir, catalogToken);
     }
 
     var badge = document.createElement('span');
     badge.className = 'ext-mgr-installed-badge';
     // Without a writable extensions directory the swap cannot happen at all,
     // and saying "(self)" would hide the reason.
-    badge.textContent = (newer || fromOtherSource) && !isWritable
+    badge.textContent = (newer || moveLabel) && !isWritable
       ? 'available — run install-queued.sh'
       : '(self)';
     return badge;
