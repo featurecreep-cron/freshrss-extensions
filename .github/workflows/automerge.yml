@@ -1,0 +1,49 @@
+name: Auto-merge
+
+# main-protection requires one approving review. GitHub forbids self-approval and
+# only one account has write access, so that rule was unsatisfiable and merging
+# meant an admin bypass every time. This turns the approval into an author
+# allowlist, which is what the rule was actually for: known authors get a bot
+# approval, anyone else gets none and cannot merge whatever permissions they hold.
+on:
+  pull_request_target:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  automerge:
+    # pull_request.user.login is the PR author. github.actor is whoever triggered
+    # the event, which is not the same thing on pull_request_target.
+    if: >-
+      contains(fromJSON('["dependabot[bot]", "featurecreep-cron", "github-actions[bot]"]'),
+               github.event.pull_request.user.login)
+    runs-on: ubuntu-latest
+    steps:
+      # No checkout anywhere in this job. pull_request_target runs with repository
+      # secrets, so checking out PR head code would hand them to the PR author.
+      - name: Generate token
+        id: generate_token
+        uses: actions/create-github-app-token@v3
+        with:
+          app-id: ${{ secrets.BOT_APP_ID }}
+          private-key: ${{ secrets.BOT_PRIVATE_KEY }}
+
+      - name: Approve PR
+        uses: hmarr/auto-approve-action@b40d6c9ed2fa10c9a2749eca7eb004418a705501
+        with:
+          github-token: ${{ steps.generate_token.outputs.token }}
+
+      # Must be the app token, not GITHUB_TOKEN. GitHub does not start new
+      # workflow runs for events triggered by GITHUB_TOKEN, so an auto-merge
+      # enabled with it lands the commit and then runs nothing — including, on a
+      # merge to main, the release workflow.
+      #
+      # --merge, not --rebase: rebasing a develop -> main promotion would give
+      # main new SHAs for develop's commits and diverge the branches.
+      - name: Enable auto-merge
+        run: gh pr merge --auto --merge "$PR_URL"
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          GH_TOKEN: ${{ steps.generate_token.outputs.token }}

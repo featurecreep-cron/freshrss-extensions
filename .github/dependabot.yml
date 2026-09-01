@@ -1,6 +1,22 @@
 version: 2
 updates:
+  # These extensions are PHP with no dependency manifest, so github-actions is
+  # the only ecosystem there is anything to update in. CI tooling never reaches
+  # a reader's FreshRSS install, so it stays "chore(ci):" and cuts no release —
+  # releases here are gated on an extension's metadata.json version increasing.
   - package-ecosystem: github-actions
     directory: /
     schedule:
-      interval: monthly
+      interval: weekly
+    cooldown:
+      semver-major-days: 30
+      semver-minor-days: 7
+      semver-patch-days: 3
+    groups:
+      actions:
+        patterns: ["*"]
+    commit-message:
+      prefix: chore
+      include: scope
+    labels:
+      - dependencies
