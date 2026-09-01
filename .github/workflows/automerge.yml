@@ -17,7 +17,8 @@ jobs:
     # pull_request.user.login is the PR author. github.actor is whoever triggered
     # the event, which is not the same thing on pull_request_target.
     if: >-
-      contains(fromJSON('["dependabot[bot]", "featurecreep-cron", "github-actions[bot]"]'),
+      contains(fromJSON('["dependabot[bot]", "featurecreep-cron",
+                          "github-actions[bot]", "featurecreep-promoter[bot]"]'),
                github.event.pull_request.user.login)
     runs-on: ubuntu-latest
     steps:
