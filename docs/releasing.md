@@ -1,0 +1,62 @@
+# Releasing
+
+Maintainer notes. Contributors never touch versions, and nothing here belongs in
+a pull request review.
+
+## Why versions matter
+
+`metadata.json` is the source of truth for every version surface, and it is the
+one that actually reaches users.
+
+The FreshRSS community catalog regenerates itself daily by cloning this
+repository's default branch and reading each extension's `metadata.json`. Nobody
+publishes to it by hand. Extension Manager then compares the catalog version
+against the installed one and only offers an update when the catalog version is
+greater. So an extension change that reaches `main` without a version bump
+reaches the catalog and is never offered to anyone who already has it installed.
+
+## Flow
+
+1. Pull requests merge into `develop`. Nothing on `develop` reaches users.
+2. Test on `develop` for as many passes as it takes. Extension Manager can
+   install an extension from the `develop` branch for exactly this.
+3. When `develop` is ready, run the **Promote** workflow by hand (Actions →
+   Promote → Run workflow). It never runs on its own.
+4. Promote bumps every extension whose shipped files changed since `main`,
+   commits that to `develop` as the promoter app, and opens the
+   `develop` → `main` pull request. Auto-merge lands it once CI is green.
+5. When `main` moves, the Release workflow tags and publishes release notes.
+
+## Bump level
+
+Promote reads the commit messages that touched each extension since `main`:
+
+| Commit | Bump |
+|---|---|
+| a `!` after the type (`feat!:`, `fix(scope)!:`) or a `BREAKING CHANGE:` footer | major |
+| `feat:` | minor |
+| anything else, including a message that isn't a conventional commit | patch |
+
+Markdown-only changes don't count. When squash-merging a contributor's pull
+request, the squash title is the message that counts, so give it the right type.
+
+For a bigger bump than that, raise the version on `develop` by hand before
+promoting; Promote keeps any version already at or above what it would have
+written. A malformed version (anything but `MAJOR.MINOR.PATCH`) stops the run
+rather than being guessed at.
+
+The Version Gate check on pull requests to `main` is the backstop: it fails if an
+extension changed without its version increasing. If a change genuinely ships
+nothing to users, apply the `no-version-bump` label.
+
+## Releases
+
+Releases are cut automatically when `main` moves. The Release workflow compares
+every `metadata.json` against the last tag. If no version increased, nothing
+shipped and no release is cut. If any did, it tags a new umbrella version —
+minor if any extension took a minor or major bump, patch otherwise — and
+publishes notes grouped by extension.
+
+The tag is a changelog, not an install source. Installs come from the catalog or
+from cloning the repository, so a release never gates whether a fix reaches
+users; the version bump does.

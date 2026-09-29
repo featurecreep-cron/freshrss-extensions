@@ -6,7 +6,7 @@ never touch versions: the Promote workflow runs this on develop, commits the
 result, and only then opens the develop -> main pull request.
 
 The bump level comes from the conventional-commit types of the commits that
-touched each extension since main, the same rule CONTRIBUTING.md states:
+touched each extension since main, as documented in docs/releasing.md:
 
     breaking change (`type!:` or a `BREAKING CHANGE:` footer)  -> major
     feat                                                        -> minor

@@ -10,14 +10,12 @@ name: Promote
 # develop -> main pull request. Committing on develop rather than on the
 # promotion branch keeps the two identical once it merges.
 #
-# workflow_dispatch is the normal path (promote when a change should ship). The
-# weekly schedule is the backstop, so a fix on develop cannot sit unreleased
-# because nobody remembered. Neither cuts a release by itself: release.yml does
-# that from the bumped versions once main moves.
+# Manual only, on purpose. develop is where changes get tested, often over
+# several passes, so it is promoted when someone decides it is ready — never on
+# a timer. Promotion does not cut a release by itself: release.yml does that
+# from the bumped versions once main moves.
 on:
   workflow_dispatch:
-  schedule:
-    - cron: "0 6 * * 1"
 
 permissions:
   contents: read
