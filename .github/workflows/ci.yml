@@ -30,3 +30,13 @@ jobs:
           php-version: ${{ matrix.php-version }}
       - name: Lint PHP files
         run: find . -name '*.php' -print0 | xargs -0 -n1 php -l
+
+  release-scripts:
+    name: Release scripts
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      # The version bump decides what reaches every existing install, and it
+      # only ever runs on the promotion path — test it before it gets there.
+      - name: Test the version bump
+        run: python3 -m unittest discover -s .github/scripts -v

@@ -15,6 +15,11 @@ import subprocess
 EXTENSION_GLOB = "xExtension-*"
 METADATA = "metadata.json"
 
+# A version bump is only owed for changes users would actually receive.
+# Prose is exempt, and metadata.json is where the bump itself lives.
+EXEMPT_SUFFIXES = (".md",)
+EXEMPT_NAMES = (METADATA,)
+
 
 def git(*args: str) -> str:
     """Run a git command and return its stdout, raising on failure."""
@@ -61,6 +66,26 @@ def versions_at(ref: str) -> dict[str, str]:
         if version is not None:
             found[directory] = version
     return found
+
+
+def changed_files(base: str, head: str) -> list[str]:
+    """Paths changed on `head` since it diverged from `base`."""
+    diff = git("diff", "--name-only", f"{base}...{head}")
+    return [line for line in diff.splitlines() if line]
+
+
+def shipping_changes(paths: list[str]) -> dict[str, list[str]]:
+    """Map each extension directory to the substantive files changed inside it."""
+    triggered: dict[str, list[str]] = {}
+    for path in paths:
+        parts = path.split("/")
+        if len(parts) < 2 or not parts[0].startswith("xExtension-"):
+            continue
+        filename = parts[-1]
+        if filename.endswith(EXEMPT_SUFFIXES) or filename in EXEMPT_NAMES:
+            continue
+        triggered.setdefault(parts[0], []).append(path)
+    return triggered
 
 
 def parse(version: str) -> tuple[int, ...]:

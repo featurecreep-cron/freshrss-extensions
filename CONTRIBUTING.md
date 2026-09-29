@@ -48,13 +48,33 @@ against the installed one and only offers an update when the catalog version is
 greater. So an extension change that ships without a version bump reaches `main`,
 reaches the catalog, and is never offered to anyone who already has it installed.
 
-Because of that, **any change to files inside `xExtension-Name/` must bump that
-extension's `metadata.json` version in the same pull request.** Markdown files
-and `metadata.json` itself are exempt. The Version Gate check enforces this; if a
-change genuinely ships nothing to users, a maintainer can apply the
-`no-version-bump` label to skip it.
+**You don't need to touch versions.** Leave `metadata.json` alone in your pull
+request; bumping is a maintainer job and it is automated.
 
-Use semver per extension: patch for fixes, minor for new behavior or settings.
+Pull requests target `develop`. When `develop` is promoted to `main`, the
+Promote workflow bumps every extension whose shipped files changed since `main`
+(Markdown doesn't count), commits that to `develop`, and opens the promotion
+pull request. The bump level comes from the commit messages that touched each
+extension:
+
+| Commit | Bump |
+|---|---|
+| a `!` after the type (`feat!:`, `fix(scope)!:`) or a `BREAKING CHANGE:` footer | major |
+| `feat:` | minor |
+| anything else, including a message that isn't a conventional commit | patch |
+
+When a maintainer squash-merges a pull request, the squash title is the message
+that counts, so it is worth giving it the right type.
+
+A maintainer who wants a bigger bump than that can raise the version on
+`develop` by hand; promotion keeps any version that is already at or above what
+it would have written. The Version Gate check on pull requests to `main` is the
+backstop: it fails if an extension changed without its version increasing. If a
+change genuinely ships nothing to users, a maintainer can apply the
+`no-version-bump` label.
+
+Promotion runs on demand and every Monday, so nothing on `develop` waits more
+than a week to ship.
 
 ## Releases
 
@@ -72,5 +92,5 @@ users; the version bump does.
 
 - One extension per PR unless changes are tightly coupled
 - Describe what the change does and why
+- Target the `develop` branch
 - Include the FreshRSS version and browser you tested with
-- Bump the extension's version in `metadata.json`
