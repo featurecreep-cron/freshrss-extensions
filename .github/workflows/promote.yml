@@ -1,0 +1,131 @@
+name: Promote
+
+# The only route to main: a pull request from this repository's develop branch.
+#
+# Opening that pull request is the decision to ship. develop is where changes
+# get tested, often over several passes, so nothing promotes on a timer. The
+# "Run workflow" button is a shortcut that opens the pull request; it does not
+# merge anything by itself.
+#
+# Contributors never touch metadata.json, and the catalog only offers an update
+# when that version compares greater, so the bump happens here: on the
+# promotion pull request, this pushes a commit to develop bumping every
+# extension that changed since main. The pull request picks it up, CI re-runs,
+# and automerge.yml lands it. Committing on develop rather than on a separate
+# branch keeps develop and main identical once it merges.
+#
+# "Promotion source" is a required check on main. It fails any pull request
+# whose head is not this repository's develop, which is what closes every other
+# route. The Version Gate is required too, and it is what holds auto-merge back
+# until the bump commit has landed: on the pull request's first head, before
+# the bump, it fails.
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: promote-${{ github.event_name }}-${{ github.event.pull_request.number || 'dispatch' }}
+  cancel-in-progress: false
+
+jobs:
+  source:
+    name: Promotion source
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require develop from this repository
+        env:
+          HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          REPO: ${{ github.repository }}
+        run: |
+          if [ "$HEAD_REPO" = "$REPO" ] && [ "$HEAD_REF" = "develop" ]; then
+            echo "Promotion from $REPO:develop."
+            exit 0
+          fi
+          echo "::error::main only accepts pull requests from $REPO:develop, not $HEAD_REPO:$HEAD_REF. Target develop instead."
+          exit 1
+
+  bump:
+    name: Bump versions on develop
+    needs: source
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          ref: develop
+          fetch-depth: 0
+
+      - name: Work out the bumps
+        id: bump
+        run: python3 .github/scripts/bump_versions.py origin/main HEAD --write
+
+      # The promoter app, not GITHUB_TOKEN: a push made with GITHUB_TOKEN starts
+      # no workflows, so the pull request's checks would never run against the
+      # bump commit and auto-merge would wait forever. Generated only when there
+      # is something to push.
+      - name: Generate promoter token
+        if: steps.bump.outputs.bumped == 'true'
+        id: promoter
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1  # v3.2.0
+        with:
+          client-id: ${{ secrets.PROMOTER_CLIENT_ID }}
+          private-key: ${{ secrets.PROMOTER_PRIVATE_KEY }}
+
+      - name: Commit the bump to develop
+        if: steps.bump.outputs.bumped == 'true'
+        env:
+          GH_TOKEN: ${{ steps.promoter.outputs.token }}
+          SLUG: ${{ steps.promoter.outputs.app-slug }}
+          SUBJECT: ${{ steps.bump.outputs.summary }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          # The app's bot user, so the commit is attributed to the promoter
+          # rather than to whoever opened the pull request.
+          bot_id=$(gh api "/users/${SLUG}%5Bbot%5D" --jq .id)
+          git config user.name "${SLUG}[bot]"
+          git config user.email "${bot_id}+${SLUG}[bot]@users.noreply.github.com"
+          git add -- 'xExtension-*/metadata.json'
+          git commit -m "$SUBJECT"
+          # Plain push, never forced: if develop moved since checkout this
+          # fails, and the synchronize event from that move recomputes.
+          git push "https://x-access-token:${GH_TOKEN}@github.com/${REPO}.git" HEAD:develop
+
+  open:
+    name: Open the promotion pull request
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Generate promoter token
+        id: promoter
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1  # v3.2.0
+        with:
+          client-id: ${{ secrets.PROMOTER_CLIENT_ID }}
+          private-key: ${{ secrets.PROMOTER_PRIVATE_KEY }}
+
+      # Opened with the app token so the pull_request event actually fires the
+      # jobs above; one opened with GITHUB_TOKEN would start nothing.
+      - name: Open or reuse the pull request
+        env:
+          GH_TOKEN: ${{ steps.promoter.outputs.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          pr=$(gh pr list -R "$REPO" --base main --head develop --state open \
+                 --json url --jq '.[0].url // empty')
+          if [ -n "$pr" ]; then
+            echo "Already open: $pr"
+            exit 0
+          fi
+          if [ "$(gh api "repos/$REPO/compare/main...develop" --jq .ahead_by)" = "0" ]; then
+            echo "develop has nothing main does not. Nothing to promote."
+            exit 0
+          fi
+          gh pr create -R "$REPO" --base main --head develop \
+            --title "release: promote develop to main" \
+            --body "Promotion. Extension versions are bumped on develop by the Promote workflow; auto-merge lands this once checks are green."
