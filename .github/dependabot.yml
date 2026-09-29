@@ -6,6 +6,9 @@ updates:
   # releases here are gated on an extension's metadata.json version increasing.
   - package-ecosystem: github-actions
     directory: /
+    # Everything lands on develop and reaches main only through promotion.
+    # Without this Dependabot targets the default branch, which is main.
+    target-branch: develop
     schedule:
       interval: weekly
     cooldown:

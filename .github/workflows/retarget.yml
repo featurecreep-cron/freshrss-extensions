@@ -1,0 +1,37 @@
+name: Retarget
+
+# main is the default branch because it is what the FreshRSS catalog clones, so
+# a pull request opened from the GitHub UI targets main unless its author
+# changes it. Nobody sending a pull request should need to know about the
+# develop/main split: this moves it to develop and says so. Promotion pull
+# requests (this repository's develop into main) are left alone.
+on:
+  pull_request_target:
+    types: [opened, reopened]
+    branches: [main]
+
+permissions:
+  pull-requests: write
+
+jobs:
+  retarget:
+    if: >-
+      !(github.event.pull_request.head.ref == 'develop'
+        && github.event.pull_request.head.repo.full_name == github.repository)
+    runs-on: ubuntu-latest
+    steps:
+      # No checkout. pull_request_target runs with a write token, so it must
+      # never run the pull request's own code.
+      - name: Move the pull request to develop
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+          AUTHOR: ${{ github.event.pull_request.user.login }}
+        run: |
+          set -euo pipefail
+          # REST rather than `gh pr edit`, which also queries project boards
+          # and has failed on that under GITHUB_TOKEN.
+          gh api -X PATCH "repos/$REPO/pulls/$PR_NUMBER" -f base=develop --silent
+          gh pr comment "$PR_URL" --body "Thanks, @${AUTHOR}! I've pointed this at \`develop\`, which is where changes land and get tested before they ship. You don't need to do anything else, and you can ignore the *Promotion source* check that ran before the move."

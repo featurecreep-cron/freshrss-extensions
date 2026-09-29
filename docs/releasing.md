@@ -17,15 +17,34 @@ reaches the catalog and is never offered to anyone who already has it installed.
 
 ## Flow
 
-1. Pull requests merge into `develop`. Nothing on `develop` reaches users.
+1. Pull requests merge into `develop`. A pull request opened against `main`
+   is moved to `develop` automatically, with a comment, so contributors never
+   need to know about the split.
 2. Test on `develop` for as many passes as it takes. Extension Manager can
    install an extension from the `develop` branch for exactly this.
-3. When `develop` is ready, run the **Promote** workflow by hand (Actions →
-   Promote → Run workflow). It never runs on its own.
-4. Promote bumps every extension whose shipped files changed since `main`,
-   commits that to `develop` as the promoter app, and opens the
-   `develop` → `main` pull request. Auto-merge lands it once CI is green.
+3. When `develop` is ready, **open a pull request from `develop` to `main`**.
+   That is the decision to ship. Actions → Promote → Run workflow is a shortcut
+   that opens it for you.
+4. On that pull request, Promote pushes a commit to `develop` bumping every
+   extension whose shipped files changed since `main`. The pull request picks
+   it up, CI re-runs, and auto-merge lands it once the checks are green.
 5. When `main` moves, the Release workflow tags and publishes release notes.
+
+## Why this is the only route
+
+`main` is the default branch because the FreshRSS catalog clones the default
+branch and nothing else, and Extension Manager downloads from `main`. If the two
+disagreed, the catalog would advertise a version that Extension Manager then
+failed to install, and offer it again forever.
+
+`main` accepts nothing but a pull request from this repository's `develop`:
+
+- **Promotion source** (required) fails any other head.
+- **Extension version bumped** (required) fails until the bump commit lands,
+  which is also what stops auto-merge from racing the bump.
+- PHP lint and the release-script tests are required.
+- No bypass, for admins included. A hotfix goes through `develop` like
+  everything else; the promotion pull request only waits on CI.
 
 ## Bump level
 

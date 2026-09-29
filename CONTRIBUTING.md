@@ -40,5 +40,4 @@ Test against the current stable FreshRSS release. Note which version and browser
 
 - One extension per PR unless changes are tightly coupled
 - Describe what the change does and why
-- Target the `develop` branch
 - Include the FreshRSS version and browser you tested with
