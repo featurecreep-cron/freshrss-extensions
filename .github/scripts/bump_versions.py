@@ -9,8 +9,14 @@ The bump level comes from the conventional-commit types of the commits that
 touched each extension since main, as documented in docs/releasing.md:
 
     breaking change (`type!:` or a `BREAKING CHANGE:` footer)  -> major
+                                                     (minor while on 0.x)
     feat                                                        -> minor
     anything else, including a subject that is not conventional -> patch
+
+On 0.x a breaking change bumps the minor version, the usual semver convention
+for initial development. 1.0.0 declares a stable interface, which is a
+maintainer's decision, not a side effect of a `!` in a commit subject: set it on
+develop by hand and the rule below keeps it.
 
 Patch is the floor, not a guess: an extension whose shipped files changed
 always gets at least a patch, or the change never reaches existing installs.
@@ -89,6 +95,13 @@ def required_level(commits: list[tuple[str, str]]) -> str:
     return max(levels, key=LEVELS.index, default="patch")
 
 
+def effective_level(version: str, level: str) -> str:
+    """The level actually applied: a breaking change on 0.x is a minor."""
+    if level == "major" and parse(version)[0] == 0:
+        return "minor"
+    return level
+
+
 def bumped(version: str, level: str) -> str:
     major, minor, patch = parse(version)
     if level == "major":
@@ -126,7 +139,7 @@ def plan(base: str, head: str) -> tuple[dict[str, tuple[str, str, str]], list[st
             )
             continue
 
-        level = required_level(commits_touching(base, head, directory))
+        level = effective_level(old, required_level(commits_touching(base, head, directory)))
         target = bumped(old, level)
         name = display_name(directory, head)
 
