@@ -16,10 +16,19 @@ jobs:
   automerge:
     # pull_request.user.login is the PR author. github.actor is whoever triggered
     # the event, which is not the same thing on pull_request_target.
+    #
+    # A promotion pull request qualifies whoever opened it. Its head is this
+    # repository's develop, which only people with write access can push to and
+    # which already went through a pull request, and opening it is the decision
+    # to ship. A fork's branch called develop does not qualify: the check is on
+    # the head repository, not the branch name.
     if: >-
       contains(fromJSON('["dependabot[bot]", "featurecreep-cron",
                           "github-actions[bot]", "featurecreep-promoter[bot]"]'),
                github.event.pull_request.user.login)
+      || (github.event.pull_request.base.ref == 'main'
+          && github.event.pull_request.head.ref == 'develop'
+          && github.event.pull_request.head.repo.full_name == github.repository)
     runs-on: ubuntu-latest
     steps:
       # No checkout anywhere in this job. pull_request_target runs with repository
