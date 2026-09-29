@@ -4,41 +4,21 @@ Existing users only see an update when the catalog version compares greater
 than what they have installed, so an unbumped metadata.json means the fix
 reaches main, reaches the catalog, and never reaches anybody's browser.
 
+Contributors never bump versions — the Promote workflow does, on develop, just
+before it opens the develop -> main pull request. This gate is the backstop that
+proves it did, and catches a pull request opened straight against main.
+
 Usage: version_gate.py <base-ref> <head-ref>
 """
 
 import sys
 
-from versions import display_name, is_increase, version_at, git
-
-# A version bump is only demanded for changes users would actually receive.
-# Prose is exempt, and metadata.json is where the bump itself lives.
-EXEMPT_SUFFIXES = (".md",)
-EXEMPT_NAMES = ("metadata.json",)
-
-
-def changed_files(base: str, head: str) -> list[str]:
-    diff = git("diff", "--name-only", f"{base}...{head}")
-    return [line for line in diff.splitlines() if line]
-
-
-def triggering_extensions(paths: list[str]) -> dict[str, list[str]]:
-    """Map each extension directory to the substantive files changed inside it."""
-    triggered: dict[str, list[str]] = {}
-    for path in paths:
-        parts = path.split("/")
-        if len(parts) < 2 or not parts[0].startswith("xExtension-"):
-            continue
-        filename = parts[-1]
-        if filename.endswith(EXEMPT_SUFFIXES) or filename in EXEMPT_NAMES:
-            continue
-        triggered.setdefault(parts[0], []).append(path)
-    return triggered
+from versions import changed_files, display_name, is_increase, shipping_changes, version_at
 
 
 def main() -> int:
     base, head = sys.argv[1], sys.argv[2]
-    triggered = triggering_extensions(changed_files(base, head))
+    triggered = shipping_changes(changed_files(base, head))
 
     if not triggered:
         print("No extension code changed. Nothing to gate.")
@@ -73,7 +53,8 @@ def main() -> int:
         for path in sorted(files):
             print(f"      {path}")
     print()
-    print("Bump the version in each metadata.json above, or apply the")
+    print("Promotion bumps these automatically: run the Promote workflow rather")
+    print("than targeting main directly. A maintainer can apply the")
     print("'no-version-bump' label if this genuinely ships nothing to users.")
     return 1
 

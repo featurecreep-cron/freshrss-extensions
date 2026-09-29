@@ -17,6 +17,7 @@ import os
 import subprocess
 import sys
 
+from bump_versions import BUMP_SUBJECT_PREFIX
 from versions import display_name, git, is_increase, parse, versions_at
 
 NOTES_PATH = "release-notes.md"
@@ -83,6 +84,10 @@ def build_notes(previous: str | None, changed: dict, unchanged: dict) -> str:
         lines.append(f"## {display_name(directory)} {heading}")
         lines.append("")
         for sha, subject in commits_for(previous, directory):
+            # The Promote workflow's bump commit is the heading above, not a
+            # change of its own.
+            if subject.startswith(BUMP_SUBJECT_PREFIX):
+                continue
             lines.append(f"- {subject} ([`{sha}`]({REPO_URL}/commit/{sha}))")
         lines.append("")
 

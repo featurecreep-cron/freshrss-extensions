@@ -1,0 +1,109 @@
+name: Promote
+
+# Moves develop to main, bumping extension versions on the way.
+#
+# Pull requests target develop and never touch metadata.json. The catalog only
+# offers an update when that version compares greater, so something has to bump
+# it before main moves — and asking whoever sent the pull request to know that
+# is the wrong place to put the rule. This job owns it: it bumps every
+# extension that changed since main, commits that to develop, and opens the
+# develop -> main pull request. Committing on develop rather than on the
+# promotion branch keeps the two identical once it merges.
+#
+# workflow_dispatch is the normal path (promote when a change should ship). The
+# weekly schedule is the backstop, so a fix on develop cannot sit unreleased
+# because nobody remembered. Neither cuts a release by itself: release.yml does
+# that from the bumped versions once main moves.
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 6 * * 1"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: promote
+  cancel-in-progress: false
+
+jobs:
+  promote:
+    runs-on: ubuntu-latest
+    steps:
+      # A second app, distinct from the one that approves: GitHub refuses
+      # self-approval, so the opener and the approver cannot be the same
+      # identity. Its token also does the push, because a push made with
+      # GITHUB_TOKEN starts no workflows — the promotion PR's checks would
+      # never run against the bump commit and auto-merge would wait forever.
+      - name: Generate promoter token
+        id: promoter
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1  # v3.2.0
+        with:
+          client-id: ${{ secrets.PROMOTER_CLIENT_ID }}
+          private-key: ${{ secrets.PROMOTER_PRIVATE_KEY }}
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          ref: develop
+          fetch-depth: 0
+          token: ${{ steps.promoter.outputs.token }}
+
+      - name: Bump changed extensions
+        id: bump
+        run: python3 .github/scripts/bump_versions.py origin/main HEAD --write
+
+      - name: Commit the bump to develop
+        if: steps.bump.outputs.bumped == 'true'
+        env:
+          GH_TOKEN: ${{ steps.promoter.outputs.token }}
+          SLUG: ${{ steps.promoter.outputs.app-slug }}
+          SUBJECT: ${{ steps.bump.outputs.summary }}
+        run: |
+          set -euo pipefail
+          # The app's bot user, so the commit is attributed to the promoter
+          # rather than to whoever dispatched the run.
+          bot_id=$(gh api "/users/${SLUG}%5Bbot%5D" --jq .id)
+          git config user.name "${SLUG}[bot]"
+          git config user.email "${bot_id}+${SLUG}[bot]@users.noreply.github.com"
+          git add -- 'xExtension-*/metadata.json'
+          git commit -m "$SUBJECT"
+          # Plain push, never forced: if develop moved since checkout this
+          # fails, and the next run recomputes against the new develop.
+          git push origin HEAD:develop
+
+      # Through a PR, not a direct push: nothing is exempt from main-protection.
+      # automerge.yml's author allowlist supplies the approving review and
+      # auto-merge lands it once the checks are green. Merged with --merge, so
+      # main gets develop's own commits and the branches do not diverge.
+      - name: Open promotion PR and wait for it to merge
+        env:
+          GH_TOKEN: ${{ steps.promoter.outputs.token }}
+        run: |
+          set -euo pipefail
+          git fetch origin main develop
+
+          if git diff --quiet origin/main origin/develop; then
+            echo "develop and main are identical — nothing to promote."
+            exit 0
+          fi
+
+          pr=$(gh pr list --base main --head develop --state open \
+                 --json number --jq '.[0].number // empty')
+          if [ -z "$pr" ]; then
+            pr=$(gh pr create --base main --head develop \
+                   --title "release: promote develop to main" \
+                   --body "Automated promotion. Extension versions were bumped on develop by this workflow. Merged by auto-merge once CI is green." \
+                   | grep -oE '[0-9]+$')
+            echo "opened PR #$pr"
+          else
+            echo "reusing open PR #$pr"
+          fi
+
+          for _ in $(seq 1 60); do
+            state=$(gh pr view "$pr" --json state --jq .state)
+            [ "$state" = "MERGED" ] && { echo "promotion merged"; exit 0; }
+            [ "$state" = "CLOSED" ] && { echo "::error::promotion PR was closed"; exit 1; }
+            sleep 30
+          done
+          echo "::error::promotion PR #$pr did not merge within 30 minutes"
+          exit 1
