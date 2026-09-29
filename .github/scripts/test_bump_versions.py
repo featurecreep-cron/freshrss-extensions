@@ -90,12 +90,27 @@ class BumpVersionsTest(unittest.TestCase):
         self.assertEqual(self.plan(), {"xExtension-Alpha": ("0.7.0", "minor")})
 
     def test_bang_is_a_major(self) -> None:
-        self.change("xExtension-Alpha", "feat(alpha)!: drop the old setting")
-        self.assertEqual(self.plan(), {"xExtension-Alpha": ("1.0.0", "major")})
+        self.change("xExtension-Beta", "feat(beta)!: drop the old setting")
+        self.assertEqual(self.plan(), {"xExtension-Beta": ("2.0.0", "major")})
 
     def test_breaking_footer_is_a_major(self) -> None:
+        self.change("xExtension-Beta", "fix: rename\n\nBREAKING CHANGE: key moved")
+        self.assertEqual(self.plan(), {"xExtension-Beta": ("2.0.0", "major")})
+
+    def test_breaking_on_zero_major_is_a_minor(self) -> None:
+        # 1.0.0 is a maintainer's call, never a side effect of a `!`.
+        self.change("xExtension-Alpha", "feat(alpha)!: drop the old setting")
+        self.assertEqual(self.plan(), {"xExtension-Alpha": ("0.7.0", "minor")})
+
+    def test_breaking_footer_on_zero_major_is_a_minor(self) -> None:
         self.change("xExtension-Alpha", "fix: rename\n\nBREAKING CHANGE: key moved")
-        self.assertEqual(self.plan(), {"xExtension-Alpha": ("1.0.0", "major")})
+        self.assertEqual(self.plan(), {"xExtension-Alpha": ("0.7.0", "minor")})
+
+    def test_hand_set_one_point_oh_is_kept(self) -> None:
+        self.change("xExtension-Alpha", "feat!: stable at last")
+        self.extension("xExtension-Alpha", "Alpha", "1.0.0")
+        self.commit("chore: declare 1.0.0")
+        self.assertEqual(self.plan(), {})
 
     def test_feat_in_another_extension_does_not_leak(self) -> None:
         self.change("xExtension-Alpha", "fix: alpha")
