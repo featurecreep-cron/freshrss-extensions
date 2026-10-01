@@ -52,9 +52,13 @@ Promote reads the commit messages that touched each extension since `main`:
 
 | Commit | Bump |
 |---|---|
-| a `!` after the type (`feat!:`, `fix(scope)!:`) or a `BREAKING CHANGE:` footer | major |
+| a `!` after the type (`feat!:`, `fix(scope)!:`) or a `BREAKING CHANGE:` footer | major, or minor while the extension is on 0.x |
 | `feat:` | minor |
 | anything else, including a message that isn't a conventional commit | patch |
+
+Every extension is on 0.x today, where semver treats the interface as still in
+development, so a breaking change there bumps the minor version. Moving an
+extension to 1.0.0 is a deliberate decision: set it on `develop` by hand.
 
 Markdown-only changes don't count. When squash-merging a contributor's pull
 request, the squash title is the message that counts, so give it the right type.
