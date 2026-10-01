@@ -55,10 +55,15 @@ jobs:
     needs: source
     runs-on: ubuntu-latest
     steps:
+      # persist-credentials: false, or checkout leaves GITHUB_TOKEN in git's
+      # config as an auth header, which git sends ahead of the promoter token
+      # in the push URL: the push then goes out as github-actions[bot] and is
+      # refused.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           ref: develop
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Work out the bumps
         id: bump
