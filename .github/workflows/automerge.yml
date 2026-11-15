@@ -7,6 +7,12 @@ name: Auto-merge
 # approval, anyone else gets none and cannot merge whatever permissions they hold.
 on:
   pull_request_target:
+    # edited is here for one reason: Retarget moves a pull request opened against
+    # main onto develop, and that move is an edit, not an open. Without it a
+    # Dependabot security update (which always targets the default branch) was
+    # approved and queued against main, moved, and then never looked at again
+    # (#47 sat for two weeks). The job below ignores every other kind of edit.
+    types: [opened, reopened, synchronize, edited]
 
 permissions:
   contents: write
@@ -22,13 +28,17 @@ jobs:
     # which already went through a pull request, and opening it is the decision
     # to ship. A fork's branch called develop does not qualify: the check is on
     # the head repository, not the branch name.
+    #
+    # An edit only counts when it changed the base branch (a retarget). Title and
+    # body edits, which anyone can make, do nothing here.
     if: >-
-      contains(fromJSON('["dependabot[bot]", "featurecreep-cron",
-                          "github-actions[bot]", "featurecreep-promoter[bot]"]'),
-               github.event.pull_request.user.login)
-      || (github.event.pull_request.base.ref == 'main'
-          && github.event.pull_request.head.ref == 'develop'
-          && github.event.pull_request.head.repo.full_name == github.repository)
+      (github.event.action != 'edited' || github.event.changes.base)
+      && (contains(fromJSON('["dependabot[bot]", "featurecreep-cron",
+                             "github-actions[bot]", "featurecreep-promoter[bot]"]'),
+                  github.event.pull_request.user.login)
+          || (github.event.pull_request.base.ref == 'main'
+              && github.event.pull_request.head.ref == 'develop'
+              && github.event.pull_request.head.repo.full_name == github.repository))
     runs-on: ubuntu-latest
     steps:
       # No checkout anywhere in this job. pull_request_target runs with repository
